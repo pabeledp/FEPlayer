@@ -42,6 +42,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       },
       child: MouseRegion(
         onHover: (_) => controller.onUserInteraction(),
+        onExit: (_) => controller.onMouseExitScreen(),
         child: Scaffold(
           backgroundColor: Colors.black,
           body: Stack(
@@ -53,9 +54,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
               // 2. Custom Frameless Title Bar (Top)
               AnimatedPositioned(
-                duration: const Duration(milliseconds: 300),
+                duration: const Duration(milliseconds: 250),
                 curve: Curves.easeInOut,
-                top: controller.controlsVisible ? 0 : -60,
+                top: controller.controlsVisible ? 0 : -65,
                 left: 0,
                 right: 0,
                 child: const SafeArea(
@@ -68,9 +69,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
               // 3. Floating Bottom Glass Control Bar
               AnimatedPositioned(
-                duration: const Duration(milliseconds: 300),
+                duration: const Duration(milliseconds: 250),
                 curve: Curves.easeInOut,
-                bottom: controller.controlsVisible ? 24 : -120,
+                bottom: controller.controlsVisible ? 24 : -130,
                 left: 24,
                 right: 24,
                 child: SafeArea(
@@ -85,7 +86,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
               // 4. VLC-Inspired Futuristic Glass Sidebar (Drawer / Library)
               AnimatedPositioned(
-                duration: const Duration(milliseconds: 300),
+                duration: const Duration(milliseconds: 250),
                 curve: Curves.easeInOut,
                 top: 56,
                 bottom: 24,

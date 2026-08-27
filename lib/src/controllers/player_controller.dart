@@ -159,7 +159,7 @@ class FEPlayerController extends ChangeNotifier {
       notifyListeners();
     });
 
-    // Populate initial demo playlist with CORS-compatible direct streams
+    // Populate initial demo playlist
     _playlist.addAll([
       PlaylistItem(
         title: "Big Buck Bunny (1080p Multi-Audio Demo)",
@@ -187,6 +187,7 @@ class FEPlayerController extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Mouse moves inside window: show controls and reset 2s inactivity timer
   void onUserInteraction() {
     if (!_controlsVisible) {
       _controlsVisible = true;
@@ -194,6 +195,15 @@ class FEPlayerController extends ChangeNotifier {
     }
     if (_isPlaying) {
       _startHideControlsTimer();
+    }
+  }
+
+  // Mouse leaves the entire screen/window: immediately hide controls
+  void onMouseExitScreen() {
+    if (_isPlaying && !_sidebarVisible) {
+      _cancelHideControlsTimer();
+      _controlsVisible = false;
+      notifyListeners();
     }
   }
 
