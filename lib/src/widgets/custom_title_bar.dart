@@ -45,23 +45,28 @@ class CustomTitleBar extends StatelessWidget {
               },
               child: Row(
                 children: [
-                  // App Logo with Electric Blue Glow
+                  // Official App Logo
                   Container(
                     width: 28,
                     height: 28,
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AppTheme.electricBlue, AppTheme.electricBlueLight],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(8),
-                      boxShadow: AppTheme.buttonGlow,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.electricBlue.withOpacity(0.25),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    child: const Center(
-                      child: Icon(
+                    padding: const EdgeInsets.all(3),
+                    child: Image.asset(
+                      'assets/icons/app_logo.png',
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => const Icon(
                         Icons.play_arrow_rounded,
-                        color: Colors.white,
+                        color: AppTheme.electricBlue,
                         size: 20,
                       ),
                     ),
