@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:file_picker/file_picker.dart';
 
 class PlaylistItem {
   final String title;
@@ -21,9 +21,7 @@ class FEPlayerController extends ChangeNotifier {
   late final Player player;
   late final VideoController videoController;
 
-  bool _isInitialized = false;
-  bool get isInitialized => _isInitialized;
-
+  // Playback State
   bool _isPlaying = false;
   bool get isPlaying => _isPlaying;
 
@@ -36,7 +34,7 @@ class FEPlayerController extends ChangeNotifier {
   Duration _buffer = Duration.zero;
   Duration get buffer => _buffer;
 
-  double _volume = 0.8;
+  double _volume = 1.0; // 0.0 - 1.0
   double get volume => _volume;
 
   bool _isMuted = false;
@@ -48,48 +46,56 @@ class FEPlayerController extends ChangeNotifier {
   String _fileName = "No File Loaded";
   String get fileName => _fileName;
 
-  bool _controlsVisible = true;
-  bool get controlsVisible => _controlsVisible;
-
   bool _isFullscreen = false;
   bool get isFullscreen => _isFullscreen;
 
-  // Sidebar visibility (VLC-style library)
+  // Active Player View Visibility (Overlay vs Home Library)
+  bool _isPlayerActive = false;
+  bool get isPlayerActive => _isPlayerActive;
+  bool get isInitialized => true;
+
+  // Auto-hide Controls State
+  bool _controlsVisible = true;
+  bool get controlsVisible => _controlsVisible;
+  Timer? _hideControlsTimer;
+
+  // Side Drawer (VLC Library)
   bool _sidebarVisible = false;
   bool get sidebarVisible => _sidebarVisible;
 
-  // Playlist & Library
+  // Audio & Subtitle Tracks (Dual-language support)
+  Tracks _tracks = const Tracks();
+  Tracks get tracks => _tracks;
+
+  AudioTrack _selectedAudioTrack = AudioTrack.auto();
+  AudioTrack get selectedAudioTrack => _selectedAudioTrack;
+
+  SubtitleTrack _selectedSubtitleTrack = SubtitleTrack.auto();
+  SubtitleTrack get selectedSubtitleTrack => _selectedSubtitleTrack;
+
+  // Playlist & Queue
   final List<PlaylistItem> _playlist = [];
   List<PlaylistItem> get playlist => _playlist;
   int _currentPlaylistIndex = -1;
   int get currentPlaylistIndex => _currentPlaylistIndex;
 
-  // Audio Tracks (Dual Language support) & Subtitles
-  Tracks _tracks = const Tracks();
-  Tracks get tracks => _tracks;
-  AudioTrack _selectedAudioTrack = AudioTrack.auto();
-  AudioTrack get selectedAudioTrack => _selectedAudioTrack;
-  SubtitleTrack _selectedSubtitleTrack = SubtitleTrack.auto();
-  SubtitleTrack get selectedSubtitleTrack => _selectedSubtitleTrack;
-
-  // HUD overlays
-  bool _showVolumeHud = false;
-  bool get showVolumeHud => _showVolumeHud;
-
+  // Seek / Volume micro-interaction visual feedback
   bool _showPlayPauseOverlay = false;
   bool get showPlayPauseOverlay => _showPlayPauseOverlay;
   bool _isOverlayPlayIcon = false;
   bool get isOverlayPlayIcon => _isOverlayPlayIcon;
+  Timer? _overlayTimer;
+
+  bool _showVolumeHud = false;
+  bool get showVolumeHud => _showVolumeHud;
+  Timer? _volumeHudTimer;
 
   bool _showSeekLeftFeedback = false;
   bool get showSeekLeftFeedback => _showSeekLeftFeedback;
+  Timer? _seekLeftTimer;
+
   bool _showSeekRightFeedback = false;
   bool get showSeekRightFeedback => _showSeekRightFeedback;
-
-  Timer? _hideControlsTimer;
-  Timer? _overlayTimer;
-  Timer? _volumeHudTimer;
-  Timer? _seekLeftTimer;
   Timer? _seekRightTimer;
 
   FEPlayerController() {
@@ -99,23 +105,20 @@ class FEPlayerController extends ChangeNotifier {
   void _initPlayer() {
     player = Player(
       configuration: const PlayerConfiguration(
-        bufferSize: 32 * 1024 * 1024,
+        bufferSize: 32 * 1024 * 1024, // 32MB buffer
+        logLevel: MPVLogLevel.warn,
       ),
     );
-    videoController = VideoController(
-      player,
-      configuration: const VideoControllerConfiguration(
-        enableHardwareAcceleration: true,
-      ),
-    );
+    videoController = VideoController(player);
 
+    // Listen to player state streams
     player.stream.playing.listen((playing) {
       _isPlaying = playing;
       if (playing) {
         _startHideControlsTimer();
       } else {
-        _cancelHideControlsTimer();
         _controlsVisible = true;
+        _cancelHideControlsTimer();
       }
       notifyListeners();
     });
@@ -137,68 +140,58 @@ class FEPlayerController extends ChangeNotifier {
 
     player.stream.volume.listen((vol) {
       _volume = vol / 100.0;
+      _isMuted = _volume == 0.0;
       notifyListeners();
     });
 
-    player.stream.tracks.listen((trks) {
-      _tracks = trks;
-      _selectedAudioTrack = trks.audio.firstWhere(
-        (t) => t.id == player.state.track.audio.id,
-        orElse: () => AudioTrack.auto(),
-      );
-      _selectedSubtitleTrack = trks.subtitle.firstWhere(
-        (t) => t.id == player.state.track.subtitle.id,
-        orElse: () => SubtitleTrack.auto(),
-      );
+    player.stream.tracks.listen((tracks) {
+      _tracks = tracks;
+      _selectedAudioTrack = player.state.track.audio;
+      _selectedSubtitleTrack = player.state.track.subtitle;
       notifyListeners();
     });
 
-    player.stream.track.listen((track) {
-      _selectedAudioTrack = track.audio;
-      _selectedSubtitleTrack = track.subtitle;
+    player.stream.rate.listen((rate) {
+      _playbackSpeed = rate;
       notifyListeners();
     });
+  }
 
-    // Populate initial demo playlist
-    _playlist.addAll([
-      PlaylistItem(
-        title: "Big Buck Bunny (1080p Multi-Audio Demo)",
-        pathOrUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-        isNetwork: true,
-      ),
-      PlaylistItem(
-        title: "Elephants Dream (Open Movie)",
-        pathOrUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
-        isNetwork: true,
-      ),
-      PlaylistItem(
-        title: "For Bigger Blazes (HD Test Stream)",
-        pathOrUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-        isNetwork: true,
-      ),
-    ]);
-
-    _isInitialized = true;
+  void openPlayer() {
+    _isPlayerActive = true;
+    _controlsVisible = true;
     notifyListeners();
   }
 
+  void closePlayer() {
+    player.pause();
+    _isPlayerActive = false;
+    notifyListeners();
+  }
+
+  // Sidebar toggle
   void toggleSidebar() {
     _sidebarVisible = !_sidebarVisible;
+    if (_sidebarVisible) {
+      _controlsVisible = true;
+      _cancelHideControlsTimer();
+    } else if (_isPlaying) {
+      _startHideControlsTimer();
+    }
     notifyListeners();
   }
 
-  // Mouse moves inside window: show controls and reset 2s inactivity timer
+  // Auto-hide controls timer logic
   void onUserInteraction() {
     if (!_controlsVisible) {
       _controlsVisible = true;
       notifyListeners();
     }
-    if (_isPlaying) {
+    if (_isPlaying && !_sidebarVisible) {
       _startHideControlsTimer();
     }
   }
 
-  // Mouse leaves the entire screen/window: immediately hide controls
   void onMouseExitScreen() {
     if (_isPlaying && !_sidebarVisible) {
       _cancelHideControlsTimer();
@@ -390,7 +383,7 @@ class FEPlayerController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Open Local File (Universal for Web & Desktop)
+  // Open Local File
   Future<void> openFile() async {
     try {
       final result = await FilePicker.platform.pickFiles(
@@ -427,6 +420,7 @@ class FEPlayerController extends ChangeNotifier {
   // Load URL or File Path
   Future<void> loadMedia(String pathOrUrl, {String? name}) async {
     _fileName = name ?? pathOrUrl.split('/').last.split('\\').last;
+    _isPlayerActive = true;
     notifyListeners();
     await player.open(Media(pathOrUrl));
     await player.play();
@@ -448,11 +442,15 @@ class FEPlayerController extends ChangeNotifier {
       } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
         seekRelative(5);
       } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-        adjustVolume(0.05); // Volume UP +5% with on-screen HUD
+        adjustVolume(0.05);
       } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-        adjustVolume(-0.05); // Volume DOWN -5% with on-screen HUD
+        adjustVolume(-0.05);
       } else if (event.logicalKey == LogicalKeyboardKey.keyL) {
-        toggleSidebar(); // Toggle Library / Playlist sidebar
+        toggleSidebar();
+      } else if (event.logicalKey == LogicalKeyboardKey.escape) {
+        if (_isPlayerActive) {
+          closePlayer();
+        }
       }
     }
   }

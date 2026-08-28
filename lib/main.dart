@@ -8,7 +8,9 @@ import 'package:window_manager/window_manager.dart';
 
 import 'src/constants/app_theme.dart';
 import 'src/controllers/player_controller.dart';
-import 'src/ui/player_screen.dart';
+import 'src/controllers/downloader_controller.dart';
+import 'src/controllers/library_controller.dart';
+import 'src/ui/main_shell.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,7 +24,6 @@ Future<void> main() async {
     await windowManager.ensureInitialized();
 
     if (Platform.isWindows) {
-      // Enable Acrylic / Mica frosted glass effect for Windows
       await Window.setEffect(
         effect: WindowEffect.acrylic,
         color: const Color(0x33F8FAFC),
@@ -36,12 +37,12 @@ Future<void> main() async {
     }
 
     WindowOptions windowOptions = const WindowOptions(
-      size: Size(1100, 680),
-      minimumSize: Size(640, 400),
+      size: Size(1180, 750),
+      minimumSize: Size(700, 480),
       center: true,
       backgroundColor: Colors.transparent,
       skipTaskbar: false,
-      titleBarStyle: TitleBarStyle.hidden, // Frameless custom titlebar
+      titleBarStyle: TitleBarStyle.hidden, // Frameless modern titlebar
     );
 
     await windowManager.waitUntilReadyToShow(windowOptions, () async {
@@ -50,10 +51,20 @@ Future<void> main() async {
     });
   }
 
+  final libraryController = LibraryController();
+  final downloaderController = DownloaderController();
+
+  // Wire download completion into Library
+  downloaderController.onDownloadComplete = (filePath, title) {
+    libraryController.addDownloadedMedia(filePath, title);
+  };
+
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => FEPlayerController()),
+        ChangeNotifierProvider.value(value: libraryController),
+        ChangeNotifierProvider.value(value: downloaderController),
       ],
       child: const FEPlayerApp(),
     ),
@@ -69,7 +80,7 @@ class FEPlayerApp extends StatelessWidget {
       title: 'FE Player',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      home: const PlayerScreen(),
+      home: const MainShell(),
     );
   }
 }

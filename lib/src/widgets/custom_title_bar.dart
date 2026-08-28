@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:window_manager/window_manager.dart';
 import '../constants/app_theme.dart';
 import '../controllers/player_controller.dart';
-import 'glass_container.dart';
+import 'glass_card.dart';
 
 class CustomTitleBar extends StatelessWidget {
   const CustomTitleBar({super.key});
@@ -17,20 +17,28 @@ class CustomTitleBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = context.watch<FEPlayerController>();
 
-    return GlassContainer(
+    return GlassCard(
       height: 48,
-      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
-      borderWidth: 0.8,
-      borderColor: AppTheme.glassBorder,
-      backgroundColor: AppTheme.glassPanel,
+      borderRadius: BorderRadius.circular(16),
+      borderWidth: 1.0,
+      borderColor: Colors.white.withOpacity(0.25),
+      color: Colors.white.withOpacity(0.18),
       padding: const EdgeInsets.symmetric(horizontal: 14),
       child: Row(
         children: [
-          // Sidebar / Library toggle button (VLC feature)
+          // Back to Library Button
+          _WindowButton(
+            icon: Icons.arrow_back_rounded,
+            onTap: () => controller.closePlayer(),
+            tooltip: "Back to Library (Esc)",
+          ),
+          const SizedBox(width: 8),
+
+          // Sidebar / Playlist toggle button
           _WindowButton(
             icon: controller.sidebarVisible ? Icons.menu_open_rounded : Icons.menu_rounded,
             onTap: () => controller.toggleSidebar(),
-            tooltip: "Toggle Media Library (L)",
+            tooltip: "Toggle Queue (L)",
           ),
           const SizedBox(width: 8),
 
@@ -45,7 +53,7 @@ class CustomTitleBar extends StatelessWidget {
               },
               child: Row(
                 children: [
-                  // Official App Logo
+                  // Official 3D App Logo
                   Container(
                     width: 28,
                     height: 28,
@@ -60,7 +68,7 @@ class CustomTitleBar extends StatelessWidget {
                         ),
                       ],
                     ),
-                    padding: const EdgeInsets.all(3),
+                    padding: const EdgeInsets.all(2),
                     child: Image.asset(
                       'assets/icons/app_logo.png',
                       fit: BoxFit.contain,
@@ -98,7 +106,7 @@ class CustomTitleBar extends StatelessWidget {
                       style: const TextStyle(
                         color: AppTheme.textSecondary,
                         fontSize: 12,
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -192,7 +200,7 @@ class _WindowButtonState extends State<_WindowButton> {
                   ? Border.all(
                       color: widget.isClose
                           ? Colors.red.withOpacity(0.3)
-                          : AppTheme.electricBlueLight.withOpacity(0.3),
+                          : AppTheme.neonCyan.withOpacity(0.3),
                       width: 1,
                     )
                   : null,

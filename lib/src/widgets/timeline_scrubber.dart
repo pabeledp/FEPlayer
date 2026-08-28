@@ -113,7 +113,7 @@ class _TimelineScrubberState extends State<TimelineScrubber> {
                         widthFactor: progressFraction,
                         child: Container(
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
+                            gradient: LinearGradient(
                               colors: [AppTheme.electricBlue, AppTheme.electricBlueLight],
                             ),
                             borderRadius: BorderRadius.circular(4),

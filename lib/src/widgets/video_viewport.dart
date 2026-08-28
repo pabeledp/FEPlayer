@@ -219,7 +219,7 @@ class VideoViewport extends StatelessWidget {
                           widthFactor: controller.isMuted ? 0.0 : controller.volume,
                           child: Container(
                             decoration: BoxDecoration(
-                              gradient: const LinearGradient(
+                              gradient: LinearGradient(
                                 colors: [AppTheme.electricBlue, AppTheme.electricBlueLight],
                               ),
                               borderRadius: BorderRadius.circular(3),
