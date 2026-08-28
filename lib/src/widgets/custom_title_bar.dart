@@ -53,42 +53,11 @@ class CustomTitleBar extends StatelessWidget {
               },
               child: Row(
                 children: [
-                  // Official 3D App Logo
-                  Container(
-                    width: 28,
+                  // Official FE Player Multimedia Organizer Brand Image
+                  Image.asset(
+                    'assets/images/fe_player_banner.png',
                     height: 28,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.electricBlue.withOpacity(0.25),
-                          blurRadius: 10,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    padding: const EdgeInsets.all(2),
-                    child: Image.asset(
-                      'assets/icons/app_logo.png',
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => const Icon(
-                        Icons.play_arrow_rounded,
-                        color: AppTheme.electricBlue,
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  // App Brand
-                  const Text(
-                    "FE PLAYER",
-                    style: TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 13,
-                      letterSpacing: 1.2,
-                    ),
+                    fit: BoxFit.contain,
                   ),
                   const SizedBox(width: 12),
                   Container(

@@ -171,20 +171,15 @@ class SettingsScreen extends StatelessWidget {
           Center(
             child: Column(
               children: [
-                Image.asset('assets/icons/app_logo.png', height: 48),
+                Image.asset('assets/images/fe_player_banner.png', height: 56, fit: BoxFit.contain),
                 const SizedBox(height: 8),
                 const Text(
-                  "FE Player v1.0.0",
+                  "v1.0.0",
                   style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.textPrimary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textSecondary,
                   ),
-                ),
-                const SizedBox(height: 2),
-                const Text(
-                  "Clean Futuristic Multimedia Organizer",
-                  style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
                 ),
               ],
             ),
