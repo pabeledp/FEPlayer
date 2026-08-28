@@ -43,20 +43,34 @@ class HomeScreen extends StatelessWidget {
                 // Prominent Large FE Player 3D Logo Banner
                 Image.asset(
                   'assets/images/fe_player_banner.png',
-                  height: 56,
+                  height: 72,
                   fit: BoxFit.contain,
                   errorBuilder: (_, __, ___) => Row(
                     children: [
-                      Image.asset('assets/icons/app_logo.png', height: 48),
-                      const SizedBox(width: 12),
-                      const Text(
-                        "FE Player",
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w800,
-                          color: AppTheme.textPrimary,
-                          letterSpacing: -0.5,
-                        ),
+                      Image.asset('assets/icons/app_logo.png', height: 60),
+                      const SizedBox(width: 14),
+                      const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            "FE Player",
+                            style: TextStyle(
+                              fontSize: 26,
+                              fontWeight: FontWeight.w900,
+                              color: AppTheme.textPrimary,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          Text(
+                            "Multimedia Organizer",
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
