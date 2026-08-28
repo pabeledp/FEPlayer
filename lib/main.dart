@@ -14,7 +14,7 @@ import 'src/controllers/library_controller.dart';
 import 'src/controllers/fe_audio_handler.dart';
 import 'src/ui/main_shell.dart';
 
-Future<void> main() async {
+Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize MediaKit libmpv hardware engine
@@ -79,6 +79,13 @@ Future<void> main() async {
   downloaderController.onDownloadComplete = (filePath, title) {
     libraryController.addDownloadedMedia(filePath, title);
   };
+
+  // If launched via "Open With" with a video file argument
+  if (args.isNotEmpty && File(args.first).existsSync()) {
+    final file = File(args.first);
+    final fileName = file.path.split(Platform.pathSeparator).last;
+    playerController.loadMedia(file.path, name: fileName);
+  }
 
   runApp(
     MultiProvider(
