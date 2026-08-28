@@ -23,12 +23,12 @@ class QualityChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           gradient: isSelected ? AppTheme.accentGradient : null,
-          color: isSelected ? null : Colors.white.withOpacity(0.08),
+          color: isSelected ? null : Colors.white.withOpacity(0.85),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected
                 ? AppTheme.neonCyan
-                : Colors.white.withOpacity(0.2),
+                : Colors.black.withOpacity(0.12),
             width: isSelected ? 1.5 : 1.0,
           ),
           boxShadow: isSelected
@@ -39,7 +39,13 @@ class QualityChip extends StatelessWidget {
                     offset: const Offset(0, 3),
                   ),
                 ]
-              : null,
+              : [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -56,8 +62,8 @@ class QualityChip extends StatelessWidget {
               resolution.label,
               style: TextStyle(
                 fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                color: isSelected ? Colors.white : AppTheme.textPrimary,
+                fontWeight: FontWeight.w800,
+                color: isSelected ? Colors.white : const Color(0xFF0F172A),
                 letterSpacing: 0.3,
               ),
             ),
@@ -66,16 +72,16 @@ class QualityChip extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
                 color: isSelected
-                    ? Colors.black.withOpacity(0.18)
-                    : Colors.white.withOpacity(0.15),
+                    ? Colors.black.withOpacity(0.22)
+                    : const Color(0xFFE2E8F0),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
                 resolution.formattedSize,
                 style: TextStyle(
                   fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: isSelected ? Colors.white : AppTheme.textSecondary,
+                  fontWeight: FontWeight.w800,
+                  color: isSelected ? Colors.white : const Color(0xFF334155),
                 ),
               ),
             ),

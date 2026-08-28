@@ -6,7 +6,9 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:screen_brightness/screen_brightness.dart';
+import 'package:volume_controller/volume_controller.dart';
 import 'package:window_manager/window_manager.dart';
+import 'fe_audio_handler.dart';
 
 class PlaylistItem {
   final String title;
@@ -23,6 +25,7 @@ class PlaylistItem {
 class FEPlayerController extends ChangeNotifier {
   late final Player player;
   late final VideoController videoController;
+  FEAudioHandler? audioHandler;
 
   // Playback State
   bool _isPlaying = false;
@@ -37,7 +40,7 @@ class FEPlayerController extends ChangeNotifier {
   Duration _buffer = Duration.zero;
   Duration get buffer => _buffer;
 
-  // Volume (0.0 - 1.0)
+  // System Device Volume (0.0 - 1.0)
   double _volume = 1.0;
   double get volume => _volume;
 
@@ -66,7 +69,7 @@ class FEPlayerController extends ChangeNotifier {
   bool get isPlayerActive => _isPlayerActive;
   bool get isInitialized => true;
 
-  // Auto-hide Controls State (3s inactivity timer)
+  // Auto-hide Controls State (3.5s inactivity timeout)
   bool _controlsVisible = true;
   bool get controlsVisible => _controlsVisible;
   Timer? _hideControlsTimer;
@@ -116,20 +119,27 @@ class FEPlayerController extends ChangeNotifier {
   Duration _dragSeekTarget = Duration.zero;
   Duration get dragSeekTarget => _dragSeekTarget;
 
-  FEPlayerController() {
+  FEPlayerController({this.audioHandler}) {
     _initPlayer();
-    _initBrightness();
+    _initBrightnessAndVolume();
   }
 
   void _initPlayer() {
     player = Player(
       configuration: const PlayerConfiguration(
-        bufferSize: 64 * 1024 * 1024, // 64MB buffer for ultra-smooth 4K 60fps
+        bufferSize: 64 * 1024 * 1024,
         logLevel: MPVLogLevel.warn,
-        ready: null,
       ),
     );
     videoController = VideoController(player);
+
+    // Setup OS Lockscreen / Notification Control Callbacks
+    if (audioHandler != null) {
+      audioHandler!.onPlayAction = () => togglePlayPause();
+      audioHandler!.onPauseAction = () => togglePlayPause();
+      audioHandler!.onSeekAction = (pos) => seek(pos);
+      audioHandler!.onStopAction = () => closePlayer();
+    }
 
     // Listen to player state streams
     player.stream.playing.listen((playing) {
@@ -140,27 +150,24 @@ class FEPlayerController extends ChangeNotifier {
         _controlsVisible = true;
         _cancelHideControlsTimer();
       }
+      _syncAudioServiceNotification();
       notifyListeners();
     });
 
     player.stream.position.listen((pos) {
       _position = pos;
+      _syncAudioServiceNotification();
       notifyListeners();
     });
 
     player.stream.duration.listen((dur) {
       _duration = dur;
+      _syncAudioServiceNotification();
       notifyListeners();
     });
 
     player.stream.buffer.listen((buf) {
       _buffer = buf;
-      notifyListeners();
-    });
-
-    player.stream.volume.listen((vol) {
-      _volume = vol / 100.0;
-      _isMuted = _volume == 0.0;
       notifyListeners();
     });
 
@@ -177,13 +184,33 @@ class FEPlayerController extends ChangeNotifier {
     });
   }
 
-  Future<void> _initBrightness() async {
+  Future<void> _initBrightnessAndVolume() async {
     try {
-      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
-        _brightness = await ScreenBrightness().application;
-        notifyListeners();
+      if (!kIsWeb) {
+        if (Platform.isAndroid || Platform.isIOS) {
+          _brightness = await ScreenBrightness().application;
+          VolumeController.instance.showSystemUI = false;
+          VolumeController.instance.addListener((vol) {
+            _volume = vol;
+            _isMuted = _volume == 0.0;
+            notifyListeners();
+          });
+          _volume = await VolumeController.instance.getVolume();
+          notifyListeners();
+        }
       }
     } catch (_) {}
+  }
+
+  void _syncAudioServiceNotification() {
+    audioHandler?.updateMedia(
+      title: _fileName,
+      artist: "FE Player",
+      duration: _duration,
+      position: _position,
+      isPlaying: _isPlaying,
+      speed: _playbackSpeed,
+    );
   }
 
   void openPlayer() {
@@ -212,19 +239,19 @@ class FEPlayerController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Auto-hide controls timer logic (3 seconds timeout)
+  // Auto-hide controls: 3.5 seconds inactivity timer
   void onUserInteraction() {
     if (!_controlsVisible) {
       _controlsVisible = true;
       notifyListeners();
     }
-    if (_isPlaying && !_sidebarVisible) {
+    if (_isPlaying && !_sidebarVisible && !_isDraggingSeek) {
       _startHideControlsTimer();
     }
   }
 
   void onMouseExitScreen() {
-    if (_isPlaying && !_sidebarVisible) {
+    if (_isPlaying && !_sidebarVisible && !_isDraggingSeek) {
       _cancelHideControlsTimer();
       _controlsVisible = false;
       notifyListeners();
@@ -233,8 +260,8 @@ class FEPlayerController extends ChangeNotifier {
 
   void _startHideControlsTimer() {
     _hideControlsTimer?.cancel();
-    _hideControlsTimer = Timer(const Duration(seconds: 3), () {
-      if (_isPlaying && !_sidebarVisible) {
+    _hideControlsTimer = Timer(const Duration(milliseconds: 3500), () {
+      if (_isPlaying && !_sidebarVisible && !_isDraggingSeek) {
         _controlsVisible = false;
         notifyListeners();
       }
@@ -309,7 +336,7 @@ class FEPlayerController extends ChangeNotifier {
         notifyListeners();
       });
     }
-    notifyListeners();
+    onUserInteraction();
   }
 
   // Horizontal Drag to Seek
@@ -331,27 +358,32 @@ class FEPlayerController extends ChangeNotifier {
     if (_isDraggingSeek) {
       await seek(_dragSeekTarget);
       _isDraggingSeek = false;
-      if (_isPlaying) {
-        _startHideControlsTimer();
-      }
+      onUserInteraction();
       notifyListeners();
     }
   }
 
-  // Volume Gesture (0.0 - 1.0) with Vertical Glass HUD
+  // Dynamic System Audio Volume Control
   Future<void> setVolume(double value) async {
     _volume = value.clamp(0.0, 1.0);
     _isMuted = _volume == 0.0;
+
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+      try {
+        VolumeController.instance.setVolume(_volume);
+      } catch (_) {}
+    }
     await player.setVolume(_volume * 100.0);
     
     // Trigger Vertical Volume HUD
     _showVolumeHud = true;
     notifyListeners();
     _volumeHudTimer?.cancel();
-    _volumeHudTimer = Timer(const Duration(milliseconds: 1500), () {
+    _volumeHudTimer = Timer(const Duration(milliseconds: 1800), () {
       _showVolumeHud = false;
       notifyListeners();
     });
+    onUserInteraction();
   }
 
   Future<void> adjustVolume(double delta) async {
@@ -361,21 +393,14 @@ class FEPlayerController extends ChangeNotifier {
   Future<void> toggleMute() async {
     if (_isMuted) {
       _isMuted = false;
-      await player.setVolume((_volume > 0 ? _volume : 0.5) * 100.0);
+      await setVolume(_volume > 0 ? _volume : 0.5);
     } else {
       _isMuted = true;
-      await player.setVolume(0);
+      await setVolume(0);
     }
-    _showVolumeHud = true;
-    notifyListeners();
-    _volumeHudTimer?.cancel();
-    _volumeHudTimer = Timer(const Duration(milliseconds: 1500), () {
-      _showVolumeHud = false;
-      notifyListeners();
-    });
   }
 
-  // Brightness Gesture (0.0 - 1.0) with Vertical Glass HUD
+  // Dynamic Screen Brightness Control
   Future<void> setBrightness(double value) async {
     _brightness = value.clamp(0.05, 1.0);
     try {
@@ -388,10 +413,11 @@ class FEPlayerController extends ChangeNotifier {
     _showBrightnessHud = true;
     notifyListeners();
     _brightnessHudTimer?.cancel();
-    _brightnessHudTimer = Timer(const Duration(milliseconds: 1500), () {
+    _brightnessHudTimer = Timer(const Duration(milliseconds: 1800), () {
       _showBrightnessHud = false;
       notifyListeners();
     });
+    onUserInteraction();
   }
 
   Future<void> adjustBrightness(double delta) async {
@@ -405,7 +431,7 @@ class FEPlayerController extends ChangeNotifier {
     if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
       await windowManager.setFullScreen(_isFullscreen);
     } else {
-      // Mobile Responsive Orientation & System UI Mode
+      // Mobile Responsive Orientation & Immersive System Mode
       if (_isFullscreen) {
         await SystemChrome.setPreferredOrientations([
           DeviceOrientation.landscapeLeft,
@@ -533,6 +559,7 @@ class FEPlayerController extends ChangeNotifier {
     notifyListeners();
     await player.open(Media(pathOrUrl));
     await player.play();
+    _syncAudioServiceNotification();
     notifyListeners();
   }
 
@@ -547,13 +574,13 @@ class FEPlayerController extends ChangeNotifier {
       } else if (event.logicalKey == LogicalKeyboardKey.keyM) {
         toggleMute();
       } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-        seekRelative(-10); // -10s
+        seekRelative(-10);
       } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-        seekRelative(10); // +10s
+        seekRelative(10);
       } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-        adjustVolume(0.05); // Volume +5%
+        adjustVolume(0.05);
       } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-        adjustVolume(-0.05); // Volume -5%
+        adjustVolume(-0.05);
       } else if (event.logicalKey == LogicalKeyboardKey.keyL) {
         toggleSidebar();
       } else if (event.logicalKey == LogicalKeyboardKey.escape) {

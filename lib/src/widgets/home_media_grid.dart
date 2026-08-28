@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 import '../constants/app_theme.dart';
 import '../models/media_file.dart';
@@ -13,28 +14,144 @@ class HomeMediaGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (items.isEmpty) {
+    final library = context.watch<LibraryController>();
+    final player = context.read<FEPlayerController>();
+
+    if (library.isLoading) {
       return Center(
-        child: GlassCard(
-          padding: const EdgeInsets.all(32),
-          borderRadius: BorderRadius.circular(24),
-          child: const Column(
+        child: Padding(
+          padding: const EdgeInsets.all(40),
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.video_library_outlined, size: 48, color: AppTheme.textSecondary),
-              SizedBox(height: 12),
+              const SizedBox(
+                width: 32,
+                height: 32,
+                child: CircularProgressIndicator(
+                  strokeWidth: 3,
+                  valueColor: AlwaysStoppedAnimation(AppTheme.electricBlue),
+                ),
+              ),
+              const SizedBox(height: 16),
               Text(
-                "No Media Found",
+                "Scanning Device Media...",
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 14,
                   fontWeight: FontWeight.w700,
                   color: AppTheme.textPrimary,
                 ),
               ),
-              SizedBox(height: 6),
-              Text(
-                "Paste a video URL in FE Downloader or import files",
-                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (items.isEmpty) {
+      return Center(
+        child: GlassCard(
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 36),
+          borderRadius: BorderRadius.circular(24),
+          color: Colors.white.withOpacity(0.85),
+          borderColor: Colors.black.withOpacity(0.1),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppTheme.electricBlue.withOpacity(0.12),
+                ),
+                child: const Center(
+                  child: Icon(Icons.video_library_rounded, size: 32, color: AppTheme.electricBlue),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                "No Local Videos Found",
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                "Import your movies or download videos using FE Downloader",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF475569)),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  GestureDetector(
+                    onTap: () async {
+                      final result = await FilePicker.platform.pickFiles(
+                        type: FileType.custom,
+                        allowedExtensions: ['mp4', 'mkv', 'avi', 'mov', 'webm', 'mp3', 'wav'],
+                      );
+                      if (result != null && result.files.single.path != null) {
+                        final path = result.files.single.path!;
+                        final name = result.files.single.name;
+                        library.addDownloadedMedia(path, name);
+                        player.loadMedia(path, name: name);
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        gradient: AppTheme.accentGradient,
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: AppTheme.cyanGlow,
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.add_circle_outline_rounded, color: Colors.white, size: 16),
+                          SizedBox(width: 6),
+                          Text(
+                            "Import Video",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  GestureDetector(
+                    onTap: () => library.scanDeviceVideos(),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFFCBD5E1)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.refresh_rounded, color: Color(0xFF334155), size: 16),
+                          SizedBox(width: 6),
+                          Text(
+                            "Rescan Storage",
+                            style: TextStyle(
+                              color: Color(0xFF334155),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -76,7 +193,8 @@ class _MediaCard extends StatelessWidget {
     return GlassCard(
       padding: EdgeInsets.zero,
       borderRadius: BorderRadius.circular(16),
-      color: Colors.white.withOpacity(0.12),
+      color: Colors.white.withOpacity(0.88),
+      borderColor: Colors.black.withOpacity(0.08),
       onTap: () {
         player.loadMedia(item.path, name: item.title);
       },
@@ -90,13 +208,13 @@ class _MediaCard extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0F172A),
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF0F172A),
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
                     gradient: LinearGradient(
                       colors: [
-                        const Color(0xFF1E293B),
-                        const Color(0xFF0F172A),
+                        Color(0xFF1E293B),
+                        Color(0xFF0F172A),
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -105,20 +223,20 @@ class _MediaCard extends StatelessWidget {
                   child: Center(
                     child: Icon(
                       item.isVideo ? Icons.movie_creation_outlined : Icons.audiotrack_rounded,
-                      color: AppTheme.electricBlue.withOpacity(0.6),
+                      color: AppTheme.electricBlue.withOpacity(0.8),
                       size: 32,
                     ),
                   ),
                 ),
 
-                // Center Play Button Overlay on Hover
+                // Center Play Button Overlay
                 Center(
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.black.withOpacity(0.4),
-                      border: Border.all(color: Colors.white.withOpacity(0.3), width: 1),
+                      color: Colors.black.withOpacity(0.55),
+                      border: Border.all(color: Colors.white.withOpacity(0.4), width: 1.2),
                     ),
                     child: const Icon(
                       Icons.play_arrow_rounded,
@@ -135,46 +253,39 @@ class _MediaCard extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.6),
+                      color: Colors.black.withOpacity(0.75),
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.white.withOpacity(0.15), width: 0.5),
+                      border: Border.all(color: Colors.white.withOpacity(0.2), width: 0.5),
                     ),
                     child: Text(
                       item.formattedSize,
                       style: const TextStyle(
                         fontSize: 9,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w800,
                         color: Colors.white,
+                        fontFamily: 'monospace',
                       ),
                     ),
                   ),
                 ),
 
-                // Bottom Left Duration Pill
+                // Bottom Left Folder Badge
                 Positioned(
                   bottom: 8,
                   left: 8,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.65),
+                      color: Colors.black.withOpacity(0.75),
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.schedule_rounded, size: 10, color: AppTheme.neonCyan),
-                        const SizedBox(width: 4),
-                        Text(
-                          item.formattedDuration,
-                          style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                            fontFamily: 'monospace',
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      item.folder ?? "Local",
+                      style: const TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.neonCyan,
+                      ),
                     ),
                   ),
                 ),
@@ -201,24 +312,25 @@ class _MediaCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.textPrimary,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF0F172A),
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          item.folder ?? "Local Media",
+                          item.formattedSize,
                           style: const TextStyle(
                             fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                            color: AppTheme.textSecondary,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF64748B),
+                            fontFamily: 'monospace',
                           ),
                         ),
                       ],
                     ),
                   ),
                   PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert_rounded, size: 16, color: AppTheme.textSecondary),
+                    icon: const Icon(Icons.more_vert_rounded, size: 16, color: Color(0xFF475569)),
                     padding: EdgeInsets.zero,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     onSelected: (val) {
@@ -235,7 +347,7 @@ class _MediaCard extends StatelessWidget {
                           children: [
                             Icon(Icons.play_arrow_rounded, size: 16, color: AppTheme.electricBlue),
                             SizedBox(width: 8),
-                            Text("Play", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                            Text("Play Video", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
                           ],
                         ),
                       ),
@@ -245,7 +357,7 @@ class _MediaCard extends StatelessWidget {
                           children: [
                             Icon(Icons.delete_outline_rounded, size: 16, color: Colors.red),
                             SizedBox(width: 8),
-                            Text("Delete", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.red)),
+                            Text("Delete", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.red)),
                           ],
                         ),
                       ),

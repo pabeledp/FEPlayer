@@ -82,11 +82,11 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                   ),
                   const SizedBox(height: 2),
                   const Text(
-                    "Ultra-Fast Glassmorphic Stream & Video Extractor",
+                    "High-Speed Glassmorphic Stream Extractor",
                     style: TextStyle(
                       fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: AppTheme.textSecondary,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF475569),
                     ),
                   ),
                 ],
@@ -94,20 +94,21 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
 
               // Network & Storage Status Badge
               GlassCard(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 borderRadius: BorderRadius.circular(16),
-                color: Colors.white.withOpacity(0.15),
+                color: Colors.white.withOpacity(0.85),
+                borderColor: Colors.black.withOpacity(0.1),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.wifi_rounded, size: 14, color: AppTheme.neonCyan),
+                    Icon(Icons.wifi_rounded, size: 14, color: AppTheme.vibrantBlue),
                     SizedBox(width: 6),
                     Text(
-                      "High-Speed • Ready",
+                      "High-Speed Engine",
                       style: TextStyle(
                         fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.textPrimary,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF0F172A),
                       ),
                     ),
                   ],
@@ -118,14 +119,14 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
 
           const SizedBox(height: 24),
 
-          // 2. Smart Input Field (Frosted Glass + Inline Paste + Dynamic Platform Glow)
+          // 2. Smart Input Field (High Contrast Frosted Glass)
           GlassCard(
             padding: const EdgeInsets.all(18),
             borderRadius: BorderRadius.circular(22),
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white.withOpacity(0.9),
             borderColor: _detectedPlatform.isNotEmpty
-                ? AppTheme.neonCyan.withOpacity(0.4)
-                : Colors.white.withOpacity(0.25),
+                ? AppTheme.vibrantBlue
+                : Colors.black.withOpacity(0.12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -137,14 +138,14 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         gradient: _detectedPlatform.isNotEmpty ? AppTheme.accentGradient : null,
-                        color: _detectedPlatform.isEmpty ? Colors.black.withOpacity(0.06) : null,
+                        color: _detectedPlatform.isEmpty ? const Color(0xFFE2E8F0) : null,
                         boxShadow: _detectedPlatform.isNotEmpty ? AppTheme.cyanGlow : null,
                       ),
                       child: Icon(
                         _detectedPlatform == 'YouTube'
                             ? Icons.play_circle_filled_rounded
                             : Icons.link_rounded,
-                        color: _detectedPlatform.isNotEmpty ? Colors.white : AppTheme.textSecondary,
+                        color: _detectedPlatform.isNotEmpty ? Colors.white : const Color(0xFF475569),
                         size: 20,
                       ),
                     ),
@@ -155,12 +156,12 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                         onSubmitted: (url) => downloader.fetchMetadata(url),
                         decoration: InputDecoration(
                           hintText: "Paste YouTube, Vimeo or direct video link...",
-                          hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                          hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
                           border: InputBorder.none,
                           isDense: true,
                           suffixIcon: _urlController.text.isNotEmpty
                               ? IconButton(
-                                  icon: const Icon(Icons.clear_rounded, size: 16),
+                                  icon: const Icon(Icons.clear_rounded, size: 16, color: Color(0xFF64748B)),
                                   onPressed: () {
                                     _urlController.clear();
                                   },
@@ -169,8 +170,8 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                         ),
                         style: const TextStyle(
                           fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textPrimary,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF0F172A),
                         ),
                       ),
                     ),
@@ -182,21 +183,21 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
+                          color: const Color(0xFFF1F5F9),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white.withOpacity(0.3)),
+                          border: Border.all(color: const Color(0xFFCBD5E1)),
                         ),
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.content_paste_rounded, size: 14, color: AppTheme.electricBlue),
+                            Icon(Icons.content_paste_rounded, size: 14, color: AppTheme.vibrantBlue),
                             SizedBox(width: 4),
                             Text(
                               "Paste",
                               style: TextStyle(
                                 fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: AppTheme.textPrimary,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF0F172A),
                               ),
                             ),
                           ],
@@ -236,7 +237,7 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontSize: 12,
-                                      fontWeight: FontWeight.w800,
+                                      fontWeight: FontWeight.w900,
                                     ),
                                   ),
                                 ],
@@ -251,16 +252,16 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: AppTheme.neonCyan.withOpacity(0.15),
+                          color: AppTheme.vibrantBlue.withOpacity(0.12),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           "Detected: $_detectedPlatform",
                           style: const TextStyle(
                             fontSize: 10,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w800,
                             color: AppTheme.vibrantBlue,
                           ),
                         ),
@@ -271,6 +272,31 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
               ],
             ),
           ),
+
+          // Error Message Banner if fetch fails
+          if (downloader.fetchError != null) ...[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.red.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_outline_rounded, size: 16, color: Colors.red),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      downloader.fetchError!,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.red),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
 
           const SizedBox(height: 20),
 
@@ -284,14 +310,14 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
           if (downloader.activeDownloads.isNotEmpty) ...[
             const Row(
               children: [
-                Icon(Icons.downloading_rounded, size: 18, color: AppTheme.electricBlue),
+                Icon(Icons.downloading_rounded, size: 18, color: AppTheme.vibrantBlue),
                 SizedBox(width: 8),
                 Text(
                   "Active Downloads",
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
-                    color: AppTheme.textPrimary,
+                    color: Color(0xFF0F172A),
                   ),
                 ),
               ],
@@ -312,7 +338,7 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
-                    color: AppTheme.textPrimary,
+                    color: Color(0xFF0F172A),
                   ),
                 ),
               ],
@@ -332,8 +358,8 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
     return GlassCard(
       padding: const EdgeInsets.all(20),
       borderRadius: BorderRadius.circular(24),
-      color: Colors.white.withOpacity(0.18),
-      borderColor: AppTheme.neonCyan.withOpacity(0.35),
+      color: Colors.white.withOpacity(0.92),
+      borderColor: AppTheme.vibrantBlue.withOpacity(0.35),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -364,14 +390,14 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.75),
+                          color: Colors.black.withOpacity(0.85),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           meta.formattedDuration,
                           style: const TextStyle(
                             fontSize: 10,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w800,
                             color: Colors.white,
                             fontFamily: 'monospace',
                           ),
@@ -395,21 +421,21 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w800,
-                        color: AppTheme.textPrimary,
+                        color: Color(0xFF0F172A),
                         height: 1.3,
                       ),
                     ),
                     const SizedBox(height: 6),
                     Row(
                       children: [
-                        const Icon(Icons.account_circle_rounded, size: 14, color: AppTheme.textSecondary),
+                        const Icon(Icons.account_circle_rounded, size: 14, color: Color(0xFF64748B)),
                         const SizedBox(width: 4),
                         Text(
                           meta.author,
                           style: const TextStyle(
                             fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textSecondary,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF64748B),
                           ),
                         ),
                       ],
@@ -422,13 +448,13 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
 
           const SizedBox(height: 20),
 
-          // Row 2: Format Switcher (Glass Segmented Control)
+          // Row 2: Format Switcher (High Contrast Glass Segmented Control)
           Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.12),
+              color: const Color(0xFFF1F5F9),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withOpacity(0.2)),
+              border: Border.all(color: const Color(0xFFCBD5E1)),
             ),
             child: Row(
               children: [
@@ -460,8 +486,8 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
               "Select Resolution & Quality:",
               style: TextStyle(
                 fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.textPrimary,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF0F172A),
               ),
             ),
             const SizedBox(height: 10),
@@ -489,7 +515,7 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
               decoration: BoxDecoration(
                 gradient: AppTheme.accentGradient,
                 borderRadius: BorderRadius.circular(16),
-                boxShadow: AppTheme.cyanGlow,
+                boxShadow: AppTheme.buttonGlow,
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -501,7 +527,7 @@ class _DownloaderScreenState extends State<DownloaderScreen> {
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 14,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w900,
                       letterSpacing: 0.3,
                     ),
                   ),
@@ -536,13 +562,14 @@ class _SegmentTab extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.white.withOpacity(0.3) : Colors.transparent,
+          color: isSelected ? Colors.white : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
           boxShadow: isSelected
               ? [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.08),
-                    blurRadius: 10,
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
                 ]
               : null,
@@ -553,7 +580,7 @@ class _SegmentTab extends StatelessWidget {
             Icon(
               icon,
               size: 16,
-              color: isSelected ? AppTheme.electricBlue : AppTheme.textSecondary,
+              color: isSelected ? AppTheme.vibrantBlue : const Color(0xFF64748B),
             ),
             const SizedBox(width: 6),
             Text(
@@ -561,7 +588,7 @@ class _SegmentTab extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                color: isSelected ? AppTheme.textPrimary : AppTheme.textSecondary,
+                color: isSelected ? const Color(0xFF0F172A) : const Color(0xFF64748B),
               ),
             ),
           ],

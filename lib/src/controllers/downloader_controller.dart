@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-
 import 'package:path_provider/path_provider.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 import '../models/download_item.dart';
@@ -62,7 +61,7 @@ class DownloaderController extends ChangeNotifier {
         _selectedResolution = DownloadResolution(
           label: "MP3 Audio",
           height: 0,
-          qualityLabel: "320 kbps (High Quality)",
+          qualityLabel: "320 kbps (High Quality Audio)",
           approxSizeBytes: 8 * 1024 * 1024,
         );
       } else {
@@ -150,7 +149,7 @@ class DownloaderController extends ChangeNotifier {
                 ],
         );
       } else {
-        // Direct stream / generic URL fallback metadata
+        // Direct stream / generic web video URL
         final title = url.split('/').last.split('?').first;
         _currentMetadata = DownloadMetadata(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -170,23 +169,8 @@ class DownloaderController extends ChangeNotifier {
 
       setFormat(_selectedFormat);
     } catch (e) {
-      _fetchError = "Unable to parse video metadata: ${e.toString()}";
-      // Provide robust demo fallback for instant UI testing if network error occurs
-      _currentMetadata = DownloadMetadata(
-        id: "demo_${DateTime.now().millisecondsSinceEpoch}",
-        title: "Big Buck Bunny 4K (Demo Stream)",
-        author: "Blender Animation Foundation",
-        thumbnailUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg",
-        duration: const Duration(minutes: 9, seconds: 56),
-        sourceUrl: url,
-        availableResolutions: [
-          DownloadResolution(label: "4K (2160p)", height: 2160, qualityLabel: "4K 60fps Ultra HD", approxSizeBytes: 380 * 1024 * 1024),
-          DownloadResolution(label: "1080p Full HD", height: 1080, qualityLabel: "1080p HD", approxSizeBytes: 120 * 1024 * 1024),
-          DownloadResolution(label: "720p HD", height: 720, qualityLabel: "720p HD", approxSizeBytes: 65 * 1024 * 1024),
-          DownloadResolution(label: "480p", height: 480, qualityLabel: "480p SD", approxSizeBytes: 28 * 1024 * 1024),
-        ],
-      );
-      setFormat(_selectedFormat);
+      _fetchError = "Unable to fetch video: ${e.toString()}";
+      debugPrint("Metadata fetch error: $e");
     } finally {
       _isFetching = false;
       notifyListeners();
@@ -265,6 +249,10 @@ class DownloaderController extends ChangeNotifier {
             await output.close();
             return;
           }
+          while (item.status == DownloadStatus.paused) {
+            await Future.delayed(const Duration(milliseconds: 300));
+          }
+
           output.add(chunk);
           item.downloadedBytes += chunk.length;
           item.progress = (item.downloadedBytes / item.totalBytes).clamp(0.0, 1.0);
@@ -282,31 +270,42 @@ class DownloaderController extends ChangeNotifier {
         await output.flush();
         await output.close();
       } else {
-        // Direct / Demo simulated high-speed download
-        final total = item.resolution.approxSizeBytes;
-        item.totalBytes = total;
-        int current = 0;
-        final chunkSize = total ~/ 25;
+        // Direct stream download
+        final file = File(filePath);
+        final client = HttpClient();
+        final request = await client.getUrl(Uri.parse(item.metadata.sourceUrl));
+        final response = await request.close();
+        item.totalBytes = response.contentLength > 0 ? response.contentLength : item.resolution.approxSizeBytes;
+        final output = file.openWrite();
 
-        for (int i = 0; i <= 25; i++) {
-          if (item.status == DownloadStatus.failed) return;
+        var lastTime = DateTime.now();
+        var lastBytes = 0;
+
+        await for (final chunk in response) {
+          if (item.status == DownloadStatus.failed) {
+            await output.close();
+            return;
+          }
           while (item.status == DownloadStatus.paused) {
             await Future.delayed(const Duration(milliseconds: 300));
           }
-          await Future.delayed(const Duration(milliseconds: 100));
-          current = (i * chunkSize).clamp(0, total);
-          item.downloadedBytes = current;
-          item.progress = current / total;
-          item.speedBytesPerSec = 4.8 * 1024 * 1024; // ~4.8 MB/s simulated
-          notifyListeners();
-        }
 
-        if (targetDir != null) {
-          final file = File(filePath);
-          if (!await file.exists()) {
-            await file.writeAsString("FE Player Media Stream Mock Data");
+          output.add(chunk);
+          item.downloadedBytes += chunk.length;
+          item.progress = (item.downloadedBytes / item.totalBytes).clamp(0.0, 1.0);
+
+          final now = DateTime.now();
+          final diff = now.difference(lastTime).inMilliseconds;
+          if (diff >= 300) {
+            final bytesDiff = item.downloadedBytes - lastBytes;
+            item.speedBytesPerSec = (bytesDiff / (diff / 1000.0));
+            lastTime = now;
+            lastBytes = item.downloadedBytes;
+            notifyListeners();
           }
         }
+        await output.flush();
+        await output.close();
       }
 
       item.status = DownloadStatus.completed;
@@ -325,6 +324,7 @@ class DownloaderController extends ChangeNotifier {
     } catch (e) {
       item.status = DownloadStatus.failed;
       item.errorMessage = e.toString();
+      debugPrint("Download execution error: $e");
       notifyListeners();
     }
   }

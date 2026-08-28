@@ -37,6 +37,9 @@ dependencies:
   http: ^1.2.1
   intl: ^0.19.0
   screen_brightness: ^2.1.7
+  volume_controller: ^3.4.4
+  audio_service: ^0.18.17
+  audio_session: ^0.1.25
 
 dev_dependencies:
   flutter_test:

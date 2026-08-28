@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_acrylic/flutter_acrylic.dart';
@@ -10,6 +11,7 @@ import 'src/constants/app_theme.dart';
 import 'src/controllers/player_controller.dart';
 import 'src/controllers/downloader_controller.dart';
 import 'src/controllers/library_controller.dart';
+import 'src/controllers/fe_audio_handler.dart';
 import 'src/ui/main_shell.dart';
 
 Future<void> main() async {
@@ -42,7 +44,7 @@ Future<void> main() async {
       center: true,
       backgroundColor: Colors.transparent,
       skipTaskbar: false,
-      titleBarStyle: TitleBarStyle.hidden, // Frameless modern titlebar
+      titleBarStyle: TitleBarStyle.hidden,
     );
 
     await windowManager.waitUntilReadyToShow(windowOptions, () async {
@@ -51,8 +53,27 @@ Future<void> main() async {
     });
   }
 
+  // Initialize AudioService for Lockscreen & Notification Center Controls
+  FEAudioHandler? audioHandler;
+  try {
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+      audioHandler = await AudioService.init(
+        builder: () => FEAudioHandler(),
+        config: const AudioServiceConfig(
+          androidNotificationChannelId: 'com.example.fe_player.channel.audio',
+          androidNotificationChannelName: 'FE Player Playback',
+          androidNotificationOngoing: true,
+          androidStopForegroundOnPause: true,
+        ),
+      );
+    }
+  } catch (e) {
+    debugPrint("AudioService initialization: $e");
+  }
+
   final libraryController = LibraryController();
   final downloaderController = DownloaderController();
+  final playerController = FEPlayerController(audioHandler: audioHandler);
 
   // Wire download completion into Library
   downloaderController.onDownloadComplete = (filePath, title) {
@@ -62,7 +83,7 @@ Future<void> main() async {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => FEPlayerController()),
+        ChangeNotifierProvider.value(value: playerController),
         ChangeNotifierProvider.value(value: libraryController),
         ChangeNotifierProvider.value(value: downloaderController),
       ],

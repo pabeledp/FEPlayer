@@ -1,135 +1,220 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../models/media_file.dart';
 
 class LibraryController extends ChangeNotifier {
   final List<LocalMediaFile> _mediaItems = [];
-  List<LocalMediaFile> get mediaItems => _searchQuery.isEmpty
-      ? _mediaItems
-      : _mediaItems.where((m) => m.title.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+  List<LocalMediaFile> get mediaItems {
+    var items = _mediaItems;
+    if (_selectedFolder != "All Media") {
+      items = items.where((m) => m.folder == _selectedFolder).toList();
+    }
+    if (_searchQuery.isNotEmpty) {
+      items = items.where((m) => m.title.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+    }
+    return items;
+  }
+
+  bool _isLoading = false;
+  bool get isLoading => _isLoading;
+
+  bool _permissionGranted = false;
+  bool get permissionGranted => _permissionGranted;
 
   String _searchQuery = "";
   String get searchQuery => _searchQuery;
 
-  final int _totalStorageBytes = 128 * 1024 * 1024 * 1024; // 128 GB simulated capacity
+  final int _totalStorageBytes = 128 * 1024 * 1024 * 1024;
   int get totalStorageBytes => _totalStorageBytes;
 
   int get libraryUsedBytes => _mediaItems.fold(0, (sum, item) => sum + item.sizeBytes);
 
-  double get storageUsageFraction => (libraryUsedBytes / _totalStorageBytes).clamp(0.0, 1.0);
+  double get storageUsageFraction => _totalStorageBytes > 0
+      ? (libraryUsedBytes / _totalStorageBytes).clamp(0.0, 1.0)
+      : 0.0;
 
-  final List<String> _folders = ["All Media", "Downloads", "Movies", "Music Videos", "Playlists"];
+  List<String> _folders = ["All Media"];
   List<String> get folders => _folders;
 
   String _selectedFolder = "All Media";
   String get selectedFolder => _selectedFolder;
 
   LibraryController() {
-    _initLibrary();
+    initAndScan();
   }
 
-  void _initLibrary() {
-    // Populate with demo media items
-    _mediaItems.addAll([
-      LocalMediaFile(
-        id: "m_1",
-        title: "Big Buck Bunny (1080p 60fps)",
-        path: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-        sizeBytes: 158 * 1024 * 1024,
-        duration: const Duration(minutes: 9, seconds: 56),
-        modifiedDate: DateTime.now().subtract(const Duration(hours: 2)),
-        folder: "Downloads",
-      ),
-      LocalMediaFile(
-        id: "m_2",
-        title: "Elephants Dream (4K Open Movie)",
-        path: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
-        sizeBytes: 420 * 1024 * 1024,
-        duration: const Duration(minutes: 10, seconds: 54),
-        modifiedDate: DateTime.now().subtract(const Duration(days: 1)),
-        folder: "Movies",
-      ),
-      LocalMediaFile(
-        id: "m_3",
-        title: "For Bigger Blazes (Action Demo)",
-        path: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-        sizeBytes: 48 * 1024 * 1024,
-        duration: const Duration(minutes: 0, seconds: 15),
-        modifiedDate: DateTime.now().subtract(const Duration(days: 3)),
-        folder: "Downloads",
-      ),
-      LocalMediaFile(
-        id: "m_4",
-        title: "Tears of Steel (VFX Sci-Fi Short)",
-        path: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
-        sizeBytes: 310 * 1024 * 1024,
-        duration: const Duration(minutes: 12, seconds: 14),
-        modifiedDate: DateTime.now().subtract(const Duration(days: 5)),
-        folder: "Movies",
-      ),
-      LocalMediaFile(
-        id: "m_5",
-        title: "We Are Going On Bullrun (Automotive)",
-        path: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4",
-        sizeBytes: 88 * 1024 * 1024,
-        duration: const Duration(minutes: 0, seconds: 47),
-        modifiedDate: DateTime.now().subtract(const Duration(days: 7)),
-        folder: "Music Videos",
-      ),
-    ]);
+  Future<void> initAndScan() async {
+    _isLoading = true;
+    notifyListeners();
 
-    _scanLocalDirectory();
+    await requestStoragePermission();
+    await scanDeviceVideos();
+
+    _isLoading = false;
+    notifyListeners();
   }
 
-  Future<void> _scanLocalDirectory() async {
-    if (kIsWeb) return;
+  Future<bool> requestStoragePermission() async {
+    if (kIsWeb) {
+      _permissionGranted = true;
+      return true;
+    }
+
+    if (Platform.isAndroid) {
+      // Android 13+ requires videos/audio permission, older needs storage
+      final videoStatus = await Permission.videos.request();
+      final audioStatus = await Permission.audio.request();
+      final storageStatus = await Permission.storage.request();
+
+      _permissionGranted = videoStatus.isGranted || storageStatus.isGranted || audioStatus.isGranted;
+    } else if (Platform.isIOS) {
+      final photos = await Permission.photos.request();
+      _permissionGranted = photos.isGranted;
+    } else {
+      // macOS, Windows, Linux
+      _permissionGranted = true;
+    }
+
+    notifyListeners();
+    return _permissionGranted;
+  }
+
+  Future<void> scanDeviceVideos() async {
+    _mediaItems.clear();
+    final folderSet = <String>{"All Media"};
+
+    final targetDirs = <Directory>[];
+
     try {
-      final docs = await getApplicationDocumentsDirectory();
-      final dir = Directory('${docs.path}/FEPlayer_Media');
-      if (await dir.exists()) {
-        final files = dir.listSync();
-        for (final f in files) {
-          if (f is File && (f.path.endsWith('.mp4') || f.path.endsWith('.mkv') || f.path.endsWith('.mp3'))) {
-            final stat = await f.stat();
-            final name = f.path.split('/').last.split('\\').last;
-            if (!_mediaItems.any((m) => m.path == f.path)) {
-              _mediaItems.insert(
-                0,
-                LocalMediaFile(
-                  id: f.path,
-                  title: name,
-                  path: f.path,
-                  sizeBytes: stat.size,
-                  duration: const Duration(minutes: 4, seconds: 15),
-                  modifiedDate: stat.modified,
-                  folder: "Downloads",
-                ),
-              );
+      if (!kIsWeb) {
+        // 1. FE Player dedicated library folder
+        final docs = await getApplicationDocumentsDirectory();
+        final feDir = Directory('${docs.path}/FEPlayer_Media');
+        if (!await feDir.exists()) {
+          await feDir.create(recursive: true);
+        }
+        targetDirs.add(feDir);
+
+        if (Platform.isAndroid) {
+          // Android standard media paths
+          final publicPaths = [
+            '/storage/emulated/0/DCIM/Camera',
+            '/storage/emulated/0/Movies',
+            '/storage/emulated/0/Download',
+            '/storage/emulated/0/Videos',
+            '/sdcard/DCIM/Camera',
+            '/sdcard/Movies',
+            '/sdcard/Download',
+          ];
+          for (final p in publicPaths) {
+            final dir = Directory(p);
+            if (dir.existsSync()) {
+              targetDirs.add(dir);
+            }
+          }
+        } else if (Platform.isMacOS) {
+          // macOS standard directories
+          final home = Platform.environment['HOME'] ?? '';
+          if (home.isNotEmpty) {
+            final macPaths = [
+              '$home/Movies',
+              '$home/Downloads',
+            ];
+            for (final p in macPaths) {
+              final dir = Directory(p);
+              if (dir.existsSync()) {
+                targetDirs.add(dir);
+              }
             }
           }
         }
-        notifyListeners();
+
+        // Scan directories for media files
+        for (final dir in targetDirs) {
+          final folderName = dir.path.split('/').last.split('\\').last;
+          try {
+            final files = dir.listSync(recursive: false);
+            for (final entity in files) {
+              if (entity is File) {
+                final path = entity.path.toLowerCase();
+                if (path.endsWith('.mp4') ||
+                    path.endsWith('.mkv') ||
+                    path.endsWith('.mov') ||
+                    path.endsWith('.avi') ||
+                    path.endsWith('.webm') ||
+                    path.endsWith('.flv') ||
+                    path.endsWith('.ts') ||
+                    path.endsWith('.m4v') ||
+                    path.endsWith('.mp3') ||
+                    path.endsWith('.wav') ||
+                    path.endsWith('.aac')) {
+                  final stat = await entity.stat();
+                  final fileName = entity.path.split('/').last.split('\\').last;
+
+                  if (!_mediaItems.any((m) => m.path == entity.path)) {
+                    folderSet.add(folderName.isEmpty ? "Media" : folderName);
+                    _mediaItems.add(
+                      LocalMediaFile(
+                        id: entity.path,
+                        title: fileName,
+                        path: entity.path,
+                        sizeBytes: stat.size,
+                        duration: const Duration(minutes: 0, seconds: 0),
+                        modifiedDate: stat.modified,
+                        folder: folderName.isEmpty ? "Media" : folderName,
+                        isVideo: !path.endsWith('.mp3') && !path.endsWith('.wav') && !path.endsWith('.aac'),
+                      ),
+                    );
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            debugPrint("Directory scan error in ${dir.path}: $e");
+          }
+        }
       }
     } catch (e) {
-      debugPrint("Error scanning local media: $e");
+      debugPrint("Media scanning error: $e");
     }
+
+    _folders = folderSet.toList();
+    notifyListeners();
   }
 
   void addDownloadedMedia(String filePath, String title) {
-    _mediaItems.insert(
-      0,
-      LocalMediaFile(
-        id: filePath,
-        title: title,
-        path: filePath,
-        sizeBytes: 75 * 1024 * 1024,
-        duration: const Duration(minutes: 3, seconds: 30),
-        modifiedDate: DateTime.now(),
-        folder: "Downloads",
-      ),
-    );
-    notifyListeners();
+    final file = File(filePath);
+    int size = 10 * 1024 * 1024;
+    DateTime mod = DateTime.now();
+    if (file.existsSync()) {
+      try {
+        final stat = file.statSync();
+        size = stat.size;
+        mod = stat.modified;
+      } catch (_) {}
+    }
+
+    if (!_mediaItems.any((m) => m.path == filePath)) {
+      if (!_folders.contains("Downloads")) {
+        _folders.add("Downloads");
+      }
+      _mediaItems.insert(
+        0,
+        LocalMediaFile(
+          id: filePath,
+          title: title,
+          path: filePath,
+          sizeBytes: size,
+          duration: const Duration(minutes: 0, seconds: 0),
+          modifiedDate: mod,
+          folder: "Downloads",
+          isVideo: !filePath.endsWith('.mp3'),
+        ),
+      );
+      notifyListeners();
+    }
   }
 
   void setSearchQuery(String q) {
