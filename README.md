@@ -1,24 +1,24 @@
-# FE Player 🎬
+# FE Player - Multimedia Organizer 🎬
 
 <p align="center">
-  <img src="assets/icons/app_logo.png" width="120" height="120" alt="FE Player Logo" />
+  <img src="assets/images/fe_player_banner.png" width="480" alt="FE Player Banner" />
 </p>
 
 <p align="center">
-  <b>Futuristic White Glassmorphism Video Player</b> built with Flutter & C++ (libmpv Hardware Acceleration Engine).
+  <b>Clean Futuristic Glassmorphic Video Player & Local Media Organizer</b> built with Flutter & C++ (libmpv Hardware Acceleration Engine).
 </p>
 
 <p align="center">
-  <a href="https://github.com/pabeledp/FEPlayer/raw/main/dmg_output/FEPlayer-macOS.dmg">
-    <img src="https://img.shields.io/badge/Download-macOS%20DMG%20(Universal)-2563EB?style=for-the-badge&logo=apple&logoColor=white" alt="Download macOS DMG" />
+  <a href="https://github.com/pabeledp/FEPlayer/raw/main/windows_installer_output/FEPlayer-Windows-Setup.exe">
+    <img src="https://img.shields.io/badge/Download-Windows%20Setup%20EXE-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Download Windows Setup EXE" />
   </a>
   &nbsp;&nbsp;
   <a href="https://github.com/pabeledp/FEPlayer/raw/main/apk_output/FEPlayer-Android.apk">
     <img src="https://img.shields.io/badge/Download-Android%20APK-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Download Android APK" />
   </a>
   &nbsp;&nbsp;
-  <a href="https://github.com/pabeledp/FEPlayer/releases">
-    <img src="https://img.shields.io/badge/Download-Windows%20EXE-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Download Windows EXE" />
+  <a href="https://github.com/pabeledp/FEPlayer/raw/main/dmg_output/FEPlayer-macOS.dmg">
+    <img src="https://img.shields.io/badge/Download-macOS%20DMG%20(Universal)-2563EB?style=for-the-badge&logo=apple&logoColor=white" alt="Download macOS DMG" />
   </a>
 </p>
 
@@ -26,11 +26,11 @@
 
 ## 📥 Direct Downloads
 
-| Platform | Download Link | Build Type | Features |
+| Platform | Download Link | Package Type | Features |
 | :--- | :--- | :--- | :--- |
-| 🍏 **macOS** | [**Download FEPlayer-macOS.dmg**](https://github.com/pabeledp/FEPlayer/raw/main/dmg_output/FEPlayer-macOS.dmg) | `.dmg` Installer (37 MB) | Full libmpv 4K 60fps hardware acceleration, Acrylic Glass blur, Frameless drag, Touch Gestures |
-| 🤖 **Android** | [**Download FEPlayer-Android.apk**](https://github.com/pabeledp/FEPlayer/raw/main/apk_output/FEPlayer-Android.apk) | `.apk` Package (44 MB) | Gesture controls, Dual Audio selector, Subtitle picker, Monospace HUD |
-| 🪟 **Windows** | [**Download Windows Release**](https://github.com/pabeledp/FEPlayer/releases) | `.exe` Executable | Acrylic / Mica blur, 60fps libmpv engine, Frameless header |
+| 🪟 **Windows** | [**Download FEPlayer-Windows-Setup.exe**](https://github.com/pabeledp/FEPlayer/raw/main/windows_installer_output/FEPlayer-Windows-Setup.exe) | `.exe` Setup Wizard | Single double-clickable installer, Program Files installation, Desktop & Start Menu shortcuts, Acrylic blur, 60fps libmpv hardware engine |
+| 🤖 **Android** | [**Download FEPlayer-Android.apk**](https://github.com/pabeledp/FEPlayer/raw/main/apk_output/FEPlayer-Android.apk) | `.apk` Package | Touch gesture controls, System volume & audio_service notification integration, Subtitle picker |
+| 🍏 **macOS** | [**Download FEPlayer-macOS.dmg**](https://github.com/pabeledp/FEPlayer/raw/main/dmg_output/FEPlayer-macOS.dmg) | `.dmg` Installer | Full 4K 60fps hardware acceleration, Acrylic Glass blur, Frameless drag, Touch Gestures |
 
 ---
 
@@ -39,49 +39,80 @@
 * **Aesthetic**: Clean White / Light Mode base with a futuristic glassmorphism style.
 * **Background & Panels**: Frosted white acrylic glass (`#F8FAFC` at `0.75` opacity) with blur filters (`BackdropFilter` sigma 16), subtle border strokes (`#E2E8F0` at `0.5` opacity), and soft drop shadows.
 * **Accent & Highlights**: Electric Blue (`#2563EB` / `#3B82F6`) for active states, timeline scrub fills, and glowing button effects.
-* **Text & Icons**: Deep Slate / Charcoal (`#0F172A`) for crisp readability against light glass panels.
+* **Sticky Brand Header**: Pinned brand header with official 3D logo banner that remains visible during scrolling.
 
 ---
 
-## ⚡ Features & Micro-Interactions
+## 🏗️ System Architecture & Codebase Structure
 
-* 📂 **VLC-Style Media Hub & Drawer (`L` key)**: Fast access to Playlist, Media Library, and Recent Media.
-* 🌐 **Dual-Language & Multi-Audio Track Selector**: Switch between audio languages (e.g. English, Hindi, Bengali) on the fly.
-* 💬 **Subtitle Track Manager**: Dynamic subtitle switching + load external `.srt` / `.vtt` files.
-* 🔊 **Keyboard Sound Control & On-Screen HUD**: `Up / Down Arrow` adjusts volume in ±5% steps with an animated frosted glass HUD badge.
-* 🖱️ **Instant Mouse Exit Auto-Hide**: Control bar and header instantly fade out when the mouse cursor leaves the video screen/window.
-* ⏩ **Double-Tap Seek**: Double-click left/right screen half to rewind/forward 5 seconds with glowing feedback badges.
-* 🎮 **Keyboard Shortcuts**:
-  * `Space`: Play / Pause toggle
-  * `Up / Down Arrow`: Volume adjust (±5%) + HUD
-  * `Left / Right Arrow`: Seek 5 seconds (±5s)
-  * `M`: Mute / Unmute
-  * `L`: Toggle VLC Media Library Drawer
-  * `F` or `F11`: Fullscreen toggle
+```
+FEPlayer/
+├── assets/
+│   ├── icons/            # 3D Official App Icons (app_logo.png)
+│   └── images/           # Official Brand Banner (fe_player_banner.png)
+├── lib/
+│   ├── main.dart         # Entry point, WindowManager, Acrylic blur, AudioService init
+│   └── src/
+│       ├── constants/    # Theme definitions, Frosted Glass glassmorphism styles
+│       ├── controllers/  # State Management (Provider)
+│       │   ├── player_controller.dart     # libmpv engine playback & controls state
+│       │   ├── library_controller.dart    # Storage scanning, folder filtering & media state
+│       │   ├── downloader_controller.dart # Video downloader & local file wiring
+│       │   └── fe_audio_handler.dart      # Lockscreen & notification media controls
+│       ├── models/       # Data models for media files & download items
+│       ├── ui/           # Screens (HomeScreen, PlayerScreen, DownloaderScreen, SettingsScreen)
+│       └── widgets/      # UI Components (CustomTitleBar, GlassCard, TimelineScrubber, VideoViewport)
+├── windows/              # C++ Native Runner & Manifests
+├── installer.iss         # Inno Setup 6 Installer compiler script
+└── windows_installer_output/ # Compiled double-clickable setup executable (FEPlayer-Windows-Setup.exe)
+```
+
+---
+
+## 📖 User Manual & How to Use
+
+### 1. Installation Guide
+* **Windows**: Download `FEPlayer-Windows-Setup.exe`, double-click to launch the setup wizard, follow the steps to install into `Program Files`, and launch via Desktop/Start Menu shortcut.
+* **Android**: Download `FEPlayer-Android.apk`, open on your Android device, grant file storage permissions, and install.
+
+### 2. Media Library & Storage Auto-Scan
+* Launching the app automatically scans local device storage for videos and media files.
+* Click **"Scan Media"** in the top header to manually refresh local storage.
+* Click **"Import File"** to pick any video/audio file directly from your file manager.
+
+### 3. Video Playback & Micro-Interactions
+* **Play / Pause**: Click screen or press `Space`.
+* **Seek / Rewind**: Use `Left / Right Arrow` or double-tap left/right side of video viewport.
+* **Volume Control**: Scroll mouse wheel or use `Up / Down Arrow` with animated glass HUD badge.
+* **Dual Audio Tracks & Subtitles**: Click the Audio/Subtitle dialog icon to switch audio languages or import external `.srt` / `.vtt` subtitles.
+
+### 4. Keyboard Shortcuts Summary
+| Key | Action |
+| :--- | :--- |
+| `Space` | Play / Pause toggle |
+| `Up / Down Arrow` | Volume adjust (±5%) + Glass HUD |
+| `Left / Right Arrow` | Seek 5 seconds (±5s) |
+| `M` | Mute / Unmute |
+| `F` or `F11` | Toggle Fullscreen |
+| `L` | Open Media Library Drawer |
 
 ---
 
 ## 🚀 Building from Source
 
-### macOS Desktop
-```bash
-cd fe_player
-./build_dmg.sh
-```
-
-### Windows Desktop
-```bash
+### Windows Setup Installer (`.exe`)
+```powershell
 flutter pub get
 flutter build windows --release
+& "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" installer.iss
 ```
 
-### Android APK
+### Android APK (`.apk`)
 ```bash
-cd fe_player
-./build_apk.sh
+flutter build apk --release
 ```
 
-### Web (Localhost)
+### macOS DMG (`.dmg`)
 ```bash
-flutter run -d chrome
+./build_dmg.sh
 ```
