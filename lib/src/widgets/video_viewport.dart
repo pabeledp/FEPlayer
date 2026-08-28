@@ -1,301 +1,321 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:provider/provider.dart';
 import '../constants/app_theme.dart';
 import '../controllers/player_controller.dart';
-import 'glass_container.dart';
+import 'glass_card.dart';
 
-class VideoViewport extends StatelessWidget {
+class VideoViewport extends StatefulWidget {
   const VideoViewport({super.key});
+
+  @override
+  State<VideoViewport> createState() => _VideoViewportState();
+}
+
+class _VideoViewportState extends State<VideoViewport> {
+  // Gesture drag tracking
+  double? _dragStartX;
+  double? _dragStartY;
+  bool _isHorizontalDrag = false;
+  bool _isVerticalLeftDrag = false;
+  bool _isVerticalRightDrag = false;
 
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<FEPlayerController>();
+    final size = MediaQuery.of(context).size;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Stack(
-          alignment: Alignment.center,
-          children: [
-            // Dark Cinema Canvas
-            Container(color: AppTheme.backgroundDark),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        controller.toggleControlsVisibility();
+      },
+      onDoubleTapDown: (details) {
+        final screenWidth = size.width;
+        final tapX = details.globalPosition.dx;
 
-            // Video Surface
-            if (controller.isInitialized)
-              Center(
-                child: Video(
-                  controller: controller.videoController,
-                  controls: NoVideoControls,
-                  fit: BoxFit.contain,
-                ),
+        if (tapX < screenWidth * 0.45) {
+          // Double Tap Left: -10s
+          controller.seekRelative(-10);
+        } else if (tapX > screenWidth * 0.55) {
+          // Double Tap Right: +10s
+          controller.seekRelative(10);
+        } else {
+          // Double Tap Center: Play / Pause
+          controller.togglePlayPause();
+        }
+      },
+      onPanStart: (details) {
+        _dragStartX = details.globalPosition.dx;
+        _dragStartY = details.globalPosition.dy;
+        _isHorizontalDrag = false;
+        _isVerticalLeftDrag = false;
+        _isVerticalRightDrag = false;
+      },
+      onPanUpdate: (details) {
+        if (_dragStartX == null || _dragStartY == null) return;
+
+        final dx = details.globalPosition.dx - _dragStartX!;
+        final dy = details.globalPosition.dy - _dragStartY!;
+
+        // Decide gesture axis if not locked yet
+        if (!_isHorizontalDrag && !_isVerticalLeftDrag && !_isVerticalRightDrag) {
+          if (dx.abs() > 15 && dx.abs() > dy.abs()) {
+            _isHorizontalDrag = true;
+            controller.startHorizontalSeek(controller.position);
+          } else if (dy.abs() > 15) {
+            if (_dragStartX! < size.width * 0.5) {
+              _isVerticalLeftDrag = true;
+            } else {
+              _isVerticalRightDrag = true;
+            }
+          }
+        }
+
+        if (_isHorizontalDrag) {
+          // Horizontal Seek: 100px drag = ~20 seconds seek
+          final deltaSeconds = (details.delta.dx / size.width) * 90.0;
+          controller.updateHorizontalSeek(deltaSeconds);
+        } else if (_isVerticalLeftDrag) {
+          // Left side: Brightness adjustment (invert dy: upward = brighter)
+          final deltaBrightness = -details.delta.dy / 250.0;
+          controller.adjustBrightness(deltaBrightness);
+        } else if (_isVerticalRightDrag) {
+          // Right side: Volume adjustment (invert dy: upward = louder)
+          final deltaVolume = -details.delta.dy / 250.0;
+          controller.adjustVolume(deltaVolume);
+        }
+      },
+      onPanEnd: (details) {
+        if (_isHorizontalDrag) {
+          controller.endHorizontalSeek();
+        }
+        _dragStartX = null;
+        _dragStartY = null;
+        _isHorizontalDrag = false;
+        _isVerticalLeftDrag = false;
+        _isVerticalRightDrag = false;
+      },
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // 1. Hardware-Accelerated Video Surface
+          Container(
+            color: Colors.black,
+            child: Center(
+              child: Video(
+                controller: controller.videoController,
+                controls: NoVideoControls,
+                fit: BoxFit.contain,
               ),
-
-            // Top-level Gesture zones for Double Taps & Screen Clicks
-            Row(
-              children: [
-                // Left Half: Double-tap rewinds 5s
-                Expanded(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onTap: () {
-                      controller.togglePlayPause();
-                    },
-                    onDoubleTap: () {
-                      controller.seekRelative(-5);
-                    },
-                  ),
-                ),
-                // Right Half: Double-tap forwards 5s
-                Expanded(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onTap: () {
-                      controller.togglePlayPause();
-                    },
-                    onDoubleTap: () {
-                      controller.seekRelative(5);
-                    },
-                  ),
-                ),
-              ],
             ),
+          ),
 
-            // Empty State / VLC-Style Dropzone Card (Visible when nothing is playing)
-            if (controller.fileName == "No File Loaded" && !controller.isPlaying)
-              Center(
-                child: GlassContainer(
-                  width: 420,
-                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 34),
-                  borderRadius: BorderRadius.circular(24),
-                  backgroundColor: AppTheme.glassPanel,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 64,
-                        height: 64,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppTheme.electricBlue.withOpacity(0.12),
-                          border: Border.all(
-                            color: AppTheme.electricBlueLight.withOpacity(0.4),
-                            width: 1.5,
-                          ),
-                          boxShadow: AppTheme.glassShadow,
-                        ),
-                        child: const Center(
-                          child: Icon(
-                            Icons.play_arrow_rounded,
-                            color: AppTheme.electricBlue,
-                            size: 36,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        "FE PLAYER",
-                        style: TextStyle(
-                          color: AppTheme.textPrimary,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.0,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        "Drag & drop video here or choose from library",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: AppTheme.textSecondary,
-                          fontSize: 13,
-                        ),
-                      ),
-                      const SizedBox(height: 22),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          ElevatedButton.icon(
-                            onPressed: () => controller.openFile(),
-                            icon: const Icon(Icons.folder_open_rounded, size: 18),
-                            label: const Text(
-                              "Open Media",
-                              style: TextStyle(fontWeight: FontWeight.w700),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.electricBlue,
-                              foregroundColor: Colors.white,
-                              elevation: 4,
-                              shadowColor: AppTheme.electricBlue.withOpacity(0.4),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 18,
-                                vertical: 12,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          OutlinedButton.icon(
-                            onPressed: () => controller.toggleSidebar(),
-                            icon: const Icon(Icons.queue_music_rounded, size: 18),
-                            label: const Text(
-                              "View Library",
-                              style: TextStyle(fontWeight: FontWeight.w700),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.electricBlue,
-                              side: const BorderSide(color: AppTheme.electricBlue, width: 1.5),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-            // Animated Play/Pause Feedback Pulse in Center
-            if (controller.showPlayPauseOverlay)
-              AnimatedOpacity(
+          // 2. Play / Pause Center Flash Animation
+          if (controller.showPlayPauseOverlay)
+            Center(
+              child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 300),
                 opacity: controller.showPlayPauseOverlay ? 1.0 : 0.0,
-                child: GlassContainer(
-                  width: 76,
-                  height: 76,
-                  borderRadius: BorderRadius.circular(38),
-                  backgroundColor: AppTheme.glassCard,
-                  borderColor: AppTheme.electricBlueLight.withOpacity(0.4),
-                  borderWidth: 1.5,
-                  child: Center(
-                    child: Icon(
-                      controller.isOverlayPlayIcon
-                          ? Icons.play_arrow_rounded
-                          : Icons.pause_rounded,
-                      color: AppTheme.electricBlue,
-                      size: 44,
+                child: GlassCard(
+                  padding: const EdgeInsets.all(22),
+                  borderRadius: BorderRadius.circular(40),
+                  color: Colors.black.withOpacity(0.4),
+                  borderColor: AppTheme.neonCyan.withOpacity(0.4),
+                  child: Icon(
+                    controller.isOverlayPlayIcon
+                        ? Icons.play_arrow_rounded
+                        : Icons.pause_rounded,
+                    color: Colors.white,
+                    size: 48,
+                  ),
+                ),
+              ),
+            ),
+
+          // 3. Double-Tap Seek Feedback Badges (-10s / +10s)
+          if (controller.showSeekLeftFeedback)
+            Positioned(
+              left: 40,
+              top: size.height * 0.4,
+              child: _buildSeekFeedbackBadge(isLeft: true),
+            ),
+          if (controller.showSeekRightFeedback)
+            Positioned(
+              right: 40,
+              top: size.height * 0.4,
+              child: _buildSeekFeedbackBadge(isLeft: false),
+            ),
+
+          // 4. Horizontal Seek Scrubbing Preview Badge
+          if (controller.isDraggingSeek)
+            Center(
+              child: GlassCard(
+                padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                borderRadius: BorderRadius.circular(20),
+                color: const Color(0xE60F172A),
+                borderColor: AppTheme.neonCyan.withOpacity(0.5),
+                shadows: AppTheme.cyanGlow,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.fast_forward_rounded, color: AppTheme.neonCyan, size: 24),
+                    const SizedBox(height: 6),
+                    Text(
+                      "${controller.formatDuration(controller.dragSeekTarget)} / ${controller.formatDuration(controller.duration)}",
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        fontFamily: 'monospace',
+                        letterSpacing: 0.5,
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ),
+            ),
 
-            // Volume Up/Down On-Screen HUD (Keyboard Up/Down Key feedback)
-            if (controller.showVolumeHud)
-              Positioned(
-                top: 70,
-                child: GlassContainer(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  borderRadius: BorderRadius.circular(16),
-                  backgroundColor: AppTheme.glassCard,
-                  borderColor: AppTheme.electricBlueLight.withOpacity(0.4),
-                  borderWidth: 1.2,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        controller.isMuted || controller.volume == 0
-                            ? Icons.volume_off_rounded
-                            : Icons.volume_up_rounded,
-                        color: AppTheme.electricBlue,
-                        size: 24,
-                      ),
-                      const SizedBox(width: 12),
-                      Container(
-                        width: 100,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: const Color(0x33CBD5E1),
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                        child: FractionallySizedBox(
-                          alignment: Alignment.centerLeft,
-                          widthFactor: controller.isMuted ? 0.0 : controller.volume,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [AppTheme.electricBlue, AppTheme.electricBlueLight],
-                              ),
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        "${(controller.isMuted ? 0 : (controller.volume * 100)).round()}%",
-                        style: const TextStyle(
-                          color: AppTheme.textPrimary,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 13,
-                          fontFamily: 'monospace',
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+          // 5. Left Vertical Screen Brightness Slider HUD
+          Positioned(
+            left: 20,
+            top: size.height * 0.28,
+            bottom: size.height * 0.28,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 250),
+              opacity: controller.showBrightnessHud ? 1.0 : 0.0,
+              child: _buildVerticalSliderHud(
+                icon: Icons.brightness_6_rounded,
+                value: controller.brightness,
+                label: "${(controller.brightness * 100).toInt()}%",
               ),
+            ),
+          ),
 
-            // Double Tap Rewind Indicator (Left Side)
-            if (controller.showSeekLeftFeedback)
-              const Positioned(
-                left: 40,
-                child: _SeekFeedbackBadge(
-                  icon: Icons.fast_rewind_rounded,
-                  label: "-5s",
-                ),
+          // 6. Right Vertical Audio Volume Slider HUD
+          Positioned(
+            right: 20,
+            top: size.height * 0.28,
+            bottom: size.height * 0.28,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 250),
+              opacity: controller.showVolumeHud ? 1.0 : 0.0,
+              child: _buildVerticalSliderHud(
+                icon: controller.isMuted
+                    ? Icons.volume_off_rounded
+                    : (controller.volume > 0.5
+                        ? Icons.volume_up_rounded
+                        : Icons.volume_down_rounded),
+                value: controller.isMuted ? 0.0 : controller.volume,
+                label: controller.isMuted
+                    ? "Muted"
+                    : "${(controller.volume * 100).toInt()}%",
               ),
-
-            // Double Tap Forward Indicator (Right Side)
-            if (controller.showSeekRightFeedback)
-              const Positioned(
-                right: 40,
-                child: _SeekFeedbackBadge(
-                  icon: Icons.fast_forward_rounded,
-                  label: "+5s",
-                ),
-              ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _SeekFeedbackBadge extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _SeekFeedbackBadge({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassContainer(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      borderRadius: BorderRadius.circular(16),
-      backgroundColor: AppTheme.glassCard,
-      borderColor: AppTheme.electricBlueLight.withOpacity(0.4),
-      borderWidth: 1.2,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: AppTheme.electricBlue, size: 28),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppTheme.electricBlue,
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSeekFeedbackBadge({required bool isLeft}) {
+    return GlassCard(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      borderRadius: BorderRadius.circular(24),
+      color: Colors.black.withOpacity(0.55),
+      borderColor: AppTheme.neonCyan.withOpacity(0.4),
+      shadows: AppTheme.cyanGlow,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isLeft ? Icons.replay_10_rounded : Icons.forward_10_rounded,
+            color: AppTheme.neonCyan,
+            size: 36,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            isLeft ? "-10 sec" : "+10 sec",
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.3,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVerticalSliderHud({
+    required IconData icon,
+    required double value,
+    required String label,
+  }) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: Container(
+          width: 44,
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xD90F172A),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white.withOpacity(0.25), width: 1.0),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.35),
+                blurRadius: 20,
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Icon(icon, color: AppTheme.neonCyan, size: 18),
+              const SizedBox(height: 10),
+              // Vertical Liquid Bar
+              Expanded(
+                child: Stack(
+                  alignment: Alignment.bottomCenter,
+                  children: [
+                    Container(
+                      width: 6,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                    FractionallySizedBox(
+                      heightFactor: value.clamp(0.0, 1.0),
+                      child: Container(
+                        width: 6,
+                        decoration: BoxDecoration(
+                          gradient: AppTheme.accentGradient,
+                          borderRadius: BorderRadius.circular(3),
+                          boxShadow: AppTheme.cyanGlow,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

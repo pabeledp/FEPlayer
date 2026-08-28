@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:screen_brightness/screen_brightness.dart';
+import 'package:window_manager/window_manager.dart';
 
 class PlaylistItem {
   final String title;
@@ -34,11 +37,20 @@ class FEPlayerController extends ChangeNotifier {
   Duration _buffer = Duration.zero;
   Duration get buffer => _buffer;
 
-  double _volume = 1.0; // 0.0 - 1.0
+  // Volume (0.0 - 1.0)
+  double _volume = 1.0;
   double get volume => _volume;
 
   bool _isMuted = false;
   bool get isMuted => _isMuted;
+
+  // Screen Brightness (0.0 - 1.0)
+  double _brightness = 0.6;
+  double get brightness => _brightness;
+
+  bool _showBrightnessHud = false;
+  bool get showBrightnessHud => _showBrightnessHud;
+  Timer? _brightnessHudTimer;
 
   double _playbackSpeed = 1.0;
   double get playbackSpeed => _playbackSpeed;
@@ -54,12 +66,12 @@ class FEPlayerController extends ChangeNotifier {
   bool get isPlayerActive => _isPlayerActive;
   bool get isInitialized => true;
 
-  // Auto-hide Controls State
+  // Auto-hide Controls State (3s inactivity timer)
   bool _controlsVisible = true;
   bool get controlsVisible => _controlsVisible;
   Timer? _hideControlsTimer;
 
-  // Side Drawer (VLC Library)
+  // Side Drawer (Playlist / Queue)
   bool _sidebarVisible = false;
   bool get sidebarVisible => _sidebarVisible;
 
@@ -79,7 +91,7 @@ class FEPlayerController extends ChangeNotifier {
   int _currentPlaylistIndex = -1;
   int get currentPlaylistIndex => _currentPlaylistIndex;
 
-  // Seek / Volume micro-interaction visual feedback
+  // Visual Gesture Overlays (Double Tap -10s / +10s)
   bool _showPlayPauseOverlay = false;
   bool get showPlayPauseOverlay => _showPlayPauseOverlay;
   bool _isOverlayPlayIcon = false;
@@ -98,15 +110,23 @@ class FEPlayerController extends ChangeNotifier {
   bool get showSeekRightFeedback => _showSeekRightFeedback;
   Timer? _seekRightTimer;
 
+  // Horizontal Drag Seeking State
+  bool _isDraggingSeek = false;
+  bool get isDraggingSeek => _isDraggingSeek;
+  Duration _dragSeekTarget = Duration.zero;
+  Duration get dragSeekTarget => _dragSeekTarget;
+
   FEPlayerController() {
     _initPlayer();
+    _initBrightness();
   }
 
   void _initPlayer() {
     player = Player(
       configuration: const PlayerConfiguration(
-        bufferSize: 32 * 1024 * 1024, // 32MB buffer
+        bufferSize: 64 * 1024 * 1024, // 64MB buffer for ultra-smooth 4K 60fps
         logLevel: MPVLogLevel.warn,
+        ready: null,
       ),
     );
     videoController = VideoController(player);
@@ -157,15 +177,26 @@ class FEPlayerController extends ChangeNotifier {
     });
   }
 
+  Future<void> _initBrightness() async {
+    try {
+      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+        _brightness = await ScreenBrightness().application;
+        notifyListeners();
+      }
+    } catch (_) {}
+  }
+
   void openPlayer() {
     _isPlayerActive = true;
     _controlsVisible = true;
+    _startHideControlsTimer();
     notifyListeners();
   }
 
   void closePlayer() {
     player.pause();
     _isPlayerActive = false;
+    _restoreOrientationAndBars();
     notifyListeners();
   }
 
@@ -181,7 +212,7 @@ class FEPlayerController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Auto-hide controls timer logic
+  // Auto-hide controls timer logic (3 seconds timeout)
   void onUserInteraction() {
     if (!_controlsVisible) {
       _controlsVisible = true;
@@ -202,7 +233,7 @@ class FEPlayerController extends ChangeNotifier {
 
   void _startHideControlsTimer() {
     _hideControlsTimer?.cancel();
-    _hideControlsTimer = Timer(const Duration(seconds: 2), () {
+    _hideControlsTimer = Timer(const Duration(seconds: 3), () {
       if (_isPlaying && !_sidebarVisible) {
         _controlsVisible = false;
         notifyListeners();
@@ -258,6 +289,7 @@ class FEPlayerController extends ChangeNotifier {
     await player.seek(clamped);
   }
 
+  // Double-tap Seek (-10s / +10s)
   Future<void> seekRelative(int seconds) async {
     final newPos = _position + Duration(seconds: seconds);
     await seek(newPos);
@@ -265,14 +297,14 @@ class FEPlayerController extends ChangeNotifier {
     if (seconds < 0) {
       _showSeekLeftFeedback = true;
       _seekLeftTimer?.cancel();
-      _seekLeftTimer = Timer(const Duration(milliseconds: 500), () {
+      _seekLeftTimer = Timer(const Duration(milliseconds: 650), () {
         _showSeekLeftFeedback = false;
         notifyListeners();
       });
     } else {
       _showSeekRightFeedback = true;
       _seekRightTimer?.cancel();
-      _seekRightTimer = Timer(const Duration(milliseconds: 500), () {
+      _seekRightTimer = Timer(const Duration(milliseconds: 650), () {
         _showSeekRightFeedback = false;
         notifyListeners();
       });
@@ -280,17 +312,43 @@ class FEPlayerController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Volume & Keyboard Up/Down Control with HUD
+  // Horizontal Drag to Seek
+  void startHorizontalSeek(Duration currentPos) {
+    _isDraggingSeek = true;
+    _dragSeekTarget = currentPos;
+    _cancelHideControlsTimer();
+    _controlsVisible = true;
+    notifyListeners();
+  }
+
+  void updateHorizontalSeek(double deltaSeconds) {
+    final newSecs = (_dragSeekTarget.inSeconds + deltaSeconds).clamp(0, _duration.inSeconds.toDouble());
+    _dragSeekTarget = Duration(seconds: newSecs.toInt());
+    notifyListeners();
+  }
+
+  Future<void> endHorizontalSeek() async {
+    if (_isDraggingSeek) {
+      await seek(_dragSeekTarget);
+      _isDraggingSeek = false;
+      if (_isPlaying) {
+        _startHideControlsTimer();
+      }
+      notifyListeners();
+    }
+  }
+
+  // Volume Gesture (0.0 - 1.0) with Vertical Glass HUD
   Future<void> setVolume(double value) async {
     _volume = value.clamp(0.0, 1.0);
     _isMuted = _volume == 0.0;
     await player.setVolume(_volume * 100.0);
     
-    // Trigger on-screen Volume HUD
+    // Trigger Vertical Volume HUD
     _showVolumeHud = true;
     notifyListeners();
     _volumeHudTimer?.cancel();
-    _volumeHudTimer = Timer(const Duration(milliseconds: 1200), () {
+    _volumeHudTimer = Timer(const Duration(milliseconds: 1500), () {
       _showVolumeHud = false;
       notifyListeners();
     });
@@ -311,10 +369,65 @@ class FEPlayerController extends ChangeNotifier {
     _showVolumeHud = true;
     notifyListeners();
     _volumeHudTimer?.cancel();
-    _volumeHudTimer = Timer(const Duration(milliseconds: 1200), () {
+    _volumeHudTimer = Timer(const Duration(milliseconds: 1500), () {
       _showVolumeHud = false;
       notifyListeners();
     });
+  }
+
+  // Brightness Gesture (0.0 - 1.0) with Vertical Glass HUD
+  Future<void> setBrightness(double value) async {
+    _brightness = value.clamp(0.05, 1.0);
+    try {
+      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+        await ScreenBrightness().setApplicationScreenBrightness(_brightness);
+      }
+    } catch (_) {}
+
+    // Trigger Vertical Brightness HUD
+    _showBrightnessHud = true;
+    notifyListeners();
+    _brightnessHudTimer?.cancel();
+    _brightnessHudTimer = Timer(const Duration(milliseconds: 1500), () {
+      _showBrightnessHud = false;
+      notifyListeners();
+    });
+  }
+
+  Future<void> adjustBrightness(double delta) async {
+    await setBrightness(_brightness + delta);
+  }
+
+  // Fullscreen & Orientation Switching
+  Future<void> toggleFullscreen() async {
+    _isFullscreen = !_isFullscreen;
+
+    if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+      await windowManager.setFullScreen(_isFullscreen);
+    } else {
+      // Mobile Responsive Orientation & System UI Mode
+      if (_isFullscreen) {
+        await SystemChrome.setPreferredOrientations([
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
+        await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      } else {
+        await _restoreOrientationAndBars();
+      }
+    }
+    notifyListeners();
+  }
+
+  Future<void> _restoreOrientationAndBars() async {
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+      await SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+      await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
   }
 
   // Playback Rate / Speed
@@ -377,12 +490,6 @@ class FEPlayerController extends ChangeNotifier {
     }
   }
 
-  // Fullscreen
-  void toggleFullscreen() {
-    _isFullscreen = !_isFullscreen;
-    notifyListeners();
-  }
-
   // Open Local File
   Future<void> openFile() async {
     try {
@@ -421,6 +528,8 @@ class FEPlayerController extends ChangeNotifier {
   Future<void> loadMedia(String pathOrUrl, {String? name}) async {
     _fileName = name ?? pathOrUrl.split('/').last.split('\\').last;
     _isPlayerActive = true;
+    _controlsVisible = true;
+    _startHideControlsTimer();
     notifyListeners();
     await player.open(Media(pathOrUrl));
     await player.play();
@@ -438,13 +547,13 @@ class FEPlayerController extends ChangeNotifier {
       } else if (event.logicalKey == LogicalKeyboardKey.keyM) {
         toggleMute();
       } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-        seekRelative(-5);
+        seekRelative(-10); // -10s
       } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-        seekRelative(5);
+        seekRelative(10); // +10s
       } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-        adjustVolume(0.05);
+        adjustVolume(0.05); // Volume +5%
       } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-        adjustVolume(-0.05);
+        adjustVolume(-0.05); // Volume -5%
       } else if (event.logicalKey == LogicalKeyboardKey.keyL) {
         toggleSidebar();
       } else if (event.logicalKey == LogicalKeyboardKey.escape) {
@@ -471,6 +580,7 @@ class FEPlayerController extends ChangeNotifier {
     _hideControlsTimer?.cancel();
     _overlayTimer?.cancel();
     _volumeHudTimer?.cancel();
+    _brightnessHudTimer?.cancel();
     _seekLeftTimer?.cancel();
     _seekRightTimer?.cancel();
     player.dispose();

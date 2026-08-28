@@ -77,7 +77,7 @@ class FEPlayerApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'FE Player',
+      title: 'FE Player - Multimedia Organizer',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       home: const MainShell(),
