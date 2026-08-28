@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <b>Futuristic White Glassmorphism Video Player</b> built with Flutter & C++ (libmpv Hardware Engine).
+  <b>Futuristic White Glassmorphism Video Player</b> built with Flutter & C++ (libmpv Hardware Acceleration Engine).
 </p>
 
 <p align="center">
@@ -13,7 +13,7 @@
     <img src="https://img.shields.io/badge/Download-macOS%20DMG%20(Universal)-2563EB?style=for-the-badge&logo=apple&logoColor=white" alt="Download macOS DMG" />
   </a>
   &nbsp;&nbsp;
-  <a href="https://github.com/pabeledp/FEPlayer/releases">
+  <a href="https://github.com/pabeledp/FEPlayer/raw/main/apk_output/FEPlayer-Android.apk">
     <img src="https://img.shields.io/badge/Download-Android%20APK-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Download Android APK" />
   </a>
   &nbsp;&nbsp;
@@ -28,8 +28,8 @@
 
 | Platform | Download Link | Build Type | Features |
 | :--- | :--- | :--- | :--- |
-| 🍏 **macOS** | [**Download FEPlayer-macOS.dmg**](https://github.com/pabeledp/FEPlayer/raw/main/dmg_output/FEPlayer-macOS.dmg) | `.dmg` Installer (Apple Silicon & Intel) | Full libmpv 4K 60fps hardware acceleration, Acrylic Glass blur, Frameless drag, Touch Gestures |
-| 🤖 **Android** | [**Download Android APK**](https://github.com/pabeledp/FEPlayer/releases) | `.apk` Package | Gesture controls, Dual Audio selector, Monospace HUD |
+| 🍏 **macOS** | [**Download FEPlayer-macOS.dmg**](https://github.com/pabeledp/FEPlayer/raw/main/dmg_output/FEPlayer-macOS.dmg) | `.dmg` Installer (37 MB) | Full libmpv 4K 60fps hardware acceleration, Acrylic Glass blur, Frameless drag, Touch Gestures |
+| 🤖 **Android** | [**Download FEPlayer-Android.apk**](https://github.com/pabeledp/FEPlayer/raw/main/apk_output/FEPlayer-Android.apk) | `.apk` Package (44 MB) | Gesture controls, Dual Audio selector, Subtitle picker, Monospace HUD |
 | 🪟 **Windows** | [**Download Windows Release**](https://github.com/pabeledp/FEPlayer/releases) | `.exe` Executable | Acrylic / Mica blur, 60fps libmpv engine, Frameless header |
 
 ---
@@ -77,7 +77,8 @@ flutter build windows --release
 
 ### Android APK
 ```bash
-flutter build apk --release
+cd fe_player
+./build_apk.sh
 ```
 
 ### Web (Localhost)
