@@ -17,74 +17,123 @@ class HomeScreen extends StatelessWidget {
     final library = context.watch<LibraryController>();
     final player = context.read<FEPlayerController>();
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(left: 24, right: 24, top: 20, bottom: 100),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 1. Header with Official FE Player Multimedia Organizer Banner & Quick Import
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Image.asset(
-                'assets/images/fe_player_banner.png',
-                height: 48,
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => Row(
-                  children: [
-                    Image.asset('assets/icons/app_logo.png', height: 40),
-                    const SizedBox(width: 12),
-                    const Text(
-                      "FE Player",
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        color: AppTheme.textPrimary,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Spacer(),
-
-              // Quick Import Local File Button
-              GlassCard(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                borderRadius: BorderRadius.circular(16),
-                color: Colors.white.withOpacity(0.18),
-                onTap: () async {
-                  final result = await FilePicker.platform.pickFiles(
-                    type: FileType.custom,
-                    allowedExtensions: ['mp4', 'mkv', 'avi', 'mov', 'webm', 'mp3', 'wav', 'flac'],
-                  );
-                  if (result != null && result.files.single.path != null) {
-                    final path = result.files.single.path!;
-                    final name = result.files.single.name;
-                    library.addDownloadedMedia(path, name);
-                    player.loadMedia(path, name: name);
-                  }
-                },
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.folder_open_rounded, size: 16, color: AppTheme.electricBlue),
-                    SizedBox(width: 6),
-                    Text(
-                      "Import File",
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                  ],
-                ),
+    return Column(
+      children: [
+        // 1. Sticky Pinned Brand Header (Fixed at Top)
+        Container(
+          padding: const EdgeInsets.only(left: 24, right: 24, top: 16, bottom: 14),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.4),
+            border: Border(
+              bottom: BorderSide(color: Colors.white.withOpacity(0.3), width: 1),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
+          child: SafeArea(
+            bottom: false,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Prominent Large FE Player 3D Logo Banner
+                Image.asset(
+                  'assets/images/fe_player_banner.png',
+                  height: 56,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => Row(
+                    children: [
+                      Image.asset('assets/icons/app_logo.png', height: 48),
+                      const SizedBox(width: 12),
+                      const Text(
+                        "FE Player",
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800,
+                          color: AppTheme.textPrimary,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Spacer(),
 
-          const SizedBox(height: 20),
+                // Scan Local Media Button
+                GlassCard(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  borderRadius: BorderRadius.circular(16),
+                  color: Colors.white.withOpacity(0.25),
+                  onTap: () {
+                    library.initAndScan();
+                  },
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.sync_rounded, size: 16, color: AppTheme.electricBlue),
+                      SizedBox(width: 6),
+                      Text(
+                        "Scan Media",
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+
+                // Quick Import Local File Button
+                GlassCard(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  borderRadius: BorderRadius.circular(16),
+                  color: Colors.white.withOpacity(0.25),
+                  onTap: () async {
+                    final result = await FilePicker.platform.pickFiles(
+                      type: FileType.custom,
+                      allowedExtensions: ['mp4', 'mkv', 'avi', 'mov', 'webm', 'mp3', 'wav', 'flac'],
+                    );
+                    if (result != null && result.files.single.path != null) {
+                      final path = result.files.single.path!;
+                      final name = result.files.single.name;
+                      library.addDownloadedMedia(path, name);
+                      player.loadMedia(path, name: name);
+                    }
+                  },
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.folder_open_rounded, size: 16, color: AppTheme.electricBlue),
+                      SizedBox(width: 6),
+                      Text(
+                        "Import File",
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // 2. Scrollable Body Content
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.only(left: 24, right: 24, top: 16, bottom: 100),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
 
           // 2. Storage & Library Status Banner
           GlassCard(
@@ -256,6 +305,9 @@ class HomeScreen extends StatelessWidget {
           HomeMediaGrid(items: library.mediaItems),
         ],
       ),
-    );
+    ),
+  ),
+],
+);
   }
 }

@@ -56,7 +56,7 @@ class CustomTitleBar extends StatelessWidget {
                   // Official FE Player Multimedia Organizer Brand Image
                   Image.asset(
                     'assets/images/fe_player_banner.png',
-                    height: 28,
+                    height: 36,
                     fit: BoxFit.contain,
                   ),
                   const SizedBox(width: 12),
