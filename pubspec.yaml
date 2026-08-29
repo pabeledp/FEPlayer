@@ -40,6 +40,7 @@ dependencies:
   volume_controller: ^3.4.4
   audio_service: ^0.18.17
   audio_session: ^0.1.25
+  shared_preferences: ^2.5.3
 
 dev_dependencies:
   flutter_test:

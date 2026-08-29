@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:window_manager/window_manager.dart';
-import '../constants/app_theme.dart';
+
 import '../controllers/player_controller.dart';
 import 'glass_card.dart';
 
@@ -21,15 +21,15 @@ class CustomTitleBar extends StatelessWidget {
     final controller = context.watch<FEPlayerController>();
 
     return GlassCard(
-      height: 48,
-      borderRadius: BorderRadius.circular(16),
+      height: 52,
+      borderRadius: BorderRadius.circular(18),
       borderWidth: 1.0,
-      borderColor: Colors.white.withOpacity(0.25),
-      color: const Color(0xD90F172A),
+      borderColor: Colors.white.withOpacity(0.22),
+      color: const Color(0xE60F172A), // Dark Frosted Cinema Glass on Video Surface
       padding: const EdgeInsets.symmetric(horizontal: 14),
       child: Row(
         children: [
-          // Back to Library Button
+          // 1. Back to Library Button (Pure White)
           _WindowButton(
             icon: Icons.arrow_back_rounded,
             onTap: () => controller.closePlayer(),
@@ -37,15 +37,15 @@ class CustomTitleBar extends StatelessWidget {
           ),
           const SizedBox(width: 8),
 
-          // Sidebar / Playlist toggle button
+          // 2. Sidebar / Playlist Toggle Button (Pure White)
           _WindowButton(
             icon: controller.sidebarVisible ? Icons.menu_open_rounded : Icons.menu_rounded,
             onTap: () => controller.toggleSidebar(),
             tooltip: "Toggle Queue (L)",
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
 
-          // Drag Window Area on Desktop
+          // 3. Drag Window Area on Desktop with White Logo & Title
           Expanded(
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
@@ -56,20 +56,25 @@ class CustomTitleBar extends StatelessWidget {
               },
               child: Row(
                 children: [
-                  // Official FE Player Multimedia Organizer Brand Image
+                  // Official White Banner Logo on Video Playback Screen
                   Image.asset(
-                    'assets/images/fe_player_banner.png',
-                    height: 40,
+                    'assets/images/fe_player_banner_white.png',
+                    height: 42,
                     fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => Image.asset(
+                      'assets/images/fe_player_banner.png',
+                      height: 42,
+                      fit: BoxFit.contain,
+                    ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 14),
                   Container(
-                    width: 1,
-                    height: 16,
-                    color: Colors.white.withOpacity(0.25),
+                    width: 1.2,
+                    height: 18,
+                    color: Colors.white.withOpacity(0.3),
                   ),
-                  const SizedBox(width: 12),
-                  // Current Video / Media Title
+                  const SizedBox(width: 14),
+                  // Current Playing Video Title in Pure White
                   Expanded(
                     child: Text(
                       controller.fileName,
@@ -77,8 +82,9 @@ class CustomTitleBar extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.2,
                       ),
                     ),
                   ),
@@ -87,7 +93,7 @@ class CustomTitleBar extends StatelessWidget {
             ),
           ),
 
-          // Windows & Linux Caption Controls ONLY (NOT shown on macOS/Mobile)
+          // 4. Windows & Linux Caption Controls ONLY in White (Hidden on macOS/Mobile)
           if (_isWindowsOrLinux) ...[
             _WindowButton(
               icon: Icons.remove,
@@ -151,33 +157,29 @@ class _WindowButtonState extends State<_WindowButton> {
           onTap: widget.onTap,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
-            width: 32,
-            height: 32,
+            width: 34,
+            height: 34,
             decoration: BoxDecoration(
               color: _isHovered
                   ? (widget.isClose
                       ? Colors.red.withOpacity(0.85)
-                      : AppTheme.electricBlue.withOpacity(0.2))
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
-              border: _isHovered
-                  ? Border.all(
-                      color: widget.isClose
-                          ? Colors.red.withOpacity(0.3)
-                          : AppTheme.neonCyan.withOpacity(0.4),
-                      width: 1,
-                    )
-                  : null,
+                      : Colors.white.withOpacity(0.2))
+                  : Colors.white.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: _isHovered
+                    ? (widget.isClose
+                        ? Colors.red.withOpacity(0.5)
+                        : Colors.white.withOpacity(0.5))
+                    : Colors.white.withOpacity(0.18),
+                width: 1.0,
+              ),
             ),
             child: Center(
               child: Icon(
                 widget.icon,
-                size: 16,
-                color: _isHovered && widget.isClose
-                    ? Colors.white
-                    : (_isHovered
-                        ? AppTheme.neonCyan
-                        : Colors.white.withOpacity(0.85)),
+                size: 17,
+                color: Colors.white, // All icons pure crisp white on Video Player
               ),
             ),
           ),

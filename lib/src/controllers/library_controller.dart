@@ -1,13 +1,24 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../models/media_file.dart';
+import '../models/media_folder.dart';
+import '../repositories/media_scanner_repository.dart';
+
+enum MediaLibraryViewMode {
+  folders,
+  allMedia,
+}
 
 class LibraryController extends ChangeNotifier {
-  final List<LocalMediaFile> _mediaItems = [];
+  final MediaScannerRepository _repository = MediaScannerRepository();
+
+  MediaLibraryViewMode _viewMode = MediaLibraryViewMode.folders;
+  MediaLibraryViewMode get viewMode => _viewMode;
+
+  final List<LocalMediaFile> _allMediaItems = [];
   List<LocalMediaFile> get mediaItems {
-    var items = _mediaItems;
+    var items = _allMediaItems;
     if (_selectedFolder != "All Media") {
       items = items.where((m) => m.folder == _selectedFolder).toList();
     }
@@ -17,11 +28,26 @@ class LibraryController extends ChangeNotifier {
     return items;
   }
 
+  Map<String, MediaFolderModel> _foldersMap = {};
+  List<MediaFolderModel> get folderList {
+    var list = _foldersMap.values.toList();
+    if (_searchQuery.isNotEmpty) {
+      list = list.where((f) => f.name.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+    }
+    return list;
+  }
+
+  MediaFolderModel? _currentOpenedFolder;
+  MediaFolderModel? get currentOpenedFolder => _currentOpenedFolder;
+
   bool _isLoading = false;
   bool get isLoading => _isLoading;
 
-  bool _permissionGranted = false;
-  bool get permissionGranted => _permissionGranted;
+  bool _isPermissionGranted = true;
+  bool get isPermissionGranted => _isPermissionGranted;
+
+  bool _isPermanentlyDenied = false;
+  bool get isPermanentlyDenied => _isPermanentlyDenied;
 
   String _searchQuery = "";
   String get searchQuery => _searchQuery;
@@ -29,7 +55,7 @@ class LibraryController extends ChangeNotifier {
   final int _totalStorageBytes = 128 * 1024 * 1024 * 1024;
   int get totalStorageBytes => _totalStorageBytes;
 
-  int get libraryUsedBytes => _mediaItems.fold(0, (sum, item) => sum + item.sizeBytes);
+  int get libraryUsedBytes => _allMediaItems.fold(0, (sum, item) => sum + item.sizeBytes);
 
   double get storageUsageFraction => _totalStorageBytes > 0
       ? (libraryUsedBytes / _totalStorageBytes).clamp(0.0, 1.0)
@@ -45,143 +71,100 @@ class LibraryController extends ChangeNotifier {
     initAndScan();
   }
 
+  void setViewMode(MediaLibraryViewMode mode) {
+    _viewMode = mode;
+    _currentOpenedFolder = null;
+    notifyListeners();
+  }
+
+  void openFolder(MediaFolderModel folder) {
+    _currentOpenedFolder = folder;
+    notifyListeners();
+  }
+
+  void closeFolder() {
+    _currentOpenedFolder = null;
+    notifyListeners();
+  }
+
   Future<void> initAndScan() async {
     _isLoading = true;
     notifyListeners();
 
-    await requestStoragePermission();
-    await scanDeviceVideos();
+    // 1. Fast load cached media from SharedPreferences for instant UI
+    final cached = await _repository.loadCachedMedia();
+    if (cached.isNotEmpty) {
+      _allMediaItems.clear();
+      _allMediaItems.addAll(cached);
+      _rebuildFolders();
+      _isLoading = false;
+      notifyListeners();
+    }
+
+    // 2. Check and request permissions
+    final hasPermission = await checkAndRequestPermissions();
+    if (hasPermission) {
+      await scanDeviceVideos();
+    }
 
     _isLoading = false;
     notifyListeners();
   }
 
-  Future<bool> requestStoragePermission() async {
-    if (kIsWeb) {
-      _permissionGranted = true;
+  Future<bool> checkAndRequestPermissions() async {
+    if (kIsWeb || Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+      _isPermissionGranted = true;
+      _isPermanentlyDenied = false;
+      notifyListeners();
       return true;
     }
 
     if (Platform.isAndroid) {
-      // Android 13+ requires videos/audio permission, older needs storage
+      // Android 13+ (API 33+) requires video & audio permissions
       final videoStatus = await Permission.videos.request();
       final audioStatus = await Permission.audio.request();
       final storageStatus = await Permission.storage.request();
 
-      _permissionGranted = videoStatus.isGranted || storageStatus.isGranted || audioStatus.isGranted;
+      _isPermissionGranted = videoStatus.isGranted || storageStatus.isGranted || audioStatus.isGranted;
+      _isPermanentlyDenied = videoStatus.isPermanentlyDenied && storageStatus.isPermanentlyDenied;
     } else if (Platform.isIOS) {
       final photos = await Permission.photos.request();
-      _permissionGranted = photos.isGranted;
-    } else {
-      // macOS, Windows, Linux
-      _permissionGranted = true;
+      _isPermissionGranted = photos.isGranted;
+      _isPermanentlyDenied = photos.isPermanentlyDenied;
     }
 
     notifyListeners();
-    return _permissionGranted;
+    return _isPermissionGranted;
+  }
+
+  Future<void> openSystemSettings() async {
+    await openAppSettings();
   }
 
   Future<void> scanDeviceVideos() async {
-    _mediaItems.clear();
-    final folderSet = <String>{"All Media"};
-
-    final targetDirs = <Directory>[];
-
-    try {
-      if (!kIsWeb) {
-        // 1. FE Player dedicated library folder
-        final docs = await getApplicationDocumentsDirectory();
-        final feDir = Directory('${docs.path}/FEPlayer_Media');
-        if (!await feDir.exists()) {
-          await feDir.create(recursive: true);
-        }
-        targetDirs.add(feDir);
-
-        if (Platform.isAndroid) {
-          // Android standard media paths
-          final publicPaths = [
-            '/storage/emulated/0/DCIM/Camera',
-            '/storage/emulated/0/Movies',
-            '/storage/emulated/0/Download',
-            '/storage/emulated/0/Videos',
-            '/sdcard/DCIM/Camera',
-            '/sdcard/Movies',
-            '/sdcard/Download',
-          ];
-          for (final p in publicPaths) {
-            final dir = Directory(p);
-            if (dir.existsSync()) {
-              targetDirs.add(dir);
-            }
-          }
-        } else if (Platform.isMacOS) {
-          // macOS standard directories
-          final home = Platform.environment['HOME'] ?? '';
-          if (home.isNotEmpty) {
-            final macPaths = [
-              '$home/Movies',
-              '$home/Downloads',
-            ];
-            for (final p in macPaths) {
-              final dir = Directory(p);
-              if (dir.existsSync()) {
-                targetDirs.add(dir);
-              }
-            }
-          }
-        }
-
-        // Scan directories for media files
-        for (final dir in targetDirs) {
-          final folderName = dir.path.split('/').last.split('\\').last;
-          try {
-            final files = dir.listSync(recursive: false);
-            for (final entity in files) {
-              if (entity is File) {
-                final path = entity.path.toLowerCase();
-                if (path.endsWith('.mp4') ||
-                    path.endsWith('.mkv') ||
-                    path.endsWith('.mov') ||
-                    path.endsWith('.avi') ||
-                    path.endsWith('.webm') ||
-                    path.endsWith('.flv') ||
-                    path.endsWith('.ts') ||
-                    path.endsWith('.m4v') ||
-                    path.endsWith('.mp3') ||
-                    path.endsWith('.wav') ||
-                    path.endsWith('.aac')) {
-                  final stat = await entity.stat();
-                  final fileName = entity.path.split('/').last.split('\\').last;
-
-                  if (!_mediaItems.any((m) => m.path == entity.path)) {
-                    folderSet.add(folderName.isEmpty ? "Media" : folderName);
-                    _mediaItems.add(
-                      LocalMediaFile(
-                        id: entity.path,
-                        title: fileName,
-                        path: entity.path,
-                        sizeBytes: stat.size,
-                        duration: const Duration(minutes: 0, seconds: 0),
-                        modifiedDate: stat.modified,
-                        folder: folderName.isEmpty ? "Media" : folderName,
-                        isVideo: !path.endsWith('.mp3') && !path.endsWith('.wav') && !path.endsWith('.aac'),
-                      ),
-                    );
-                  }
-                }
-              }
-            }
-          } catch (e) {
-            debugPrint("Directory scan error in ${dir.path}: $e");
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint("Media scanning error: $e");
-    }
-
-    _folders = folderSet.toList();
+    _isLoading = true;
     notifyListeners();
+
+    final scanned = await _repository.scanDeviceStorage();
+    _allMediaItems.clear();
+    _allMediaItems.addAll(scanned);
+    _rebuildFolders();
+
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  void _rebuildFolders() {
+    _foldersMap = _repository.groupMediaByFolders(_allMediaItems);
+    final folderSet = <String>{"All Media"};
+    for (final k in _foldersMap.keys) {
+      folderSet.add(k);
+    }
+    _folders = folderSet.toList();
+
+    if (_currentOpenedFolder != null) {
+      _currentOpenedFolder = _foldersMap[_currentOpenedFolder!.name];
+    }
   }
 
   void addDownloadedMedia(String filePath, String title) {
@@ -196,23 +179,27 @@ class LibraryController extends ChangeNotifier {
       } catch (_) {}
     }
 
-    if (!_mediaItems.any((m) => m.path == filePath)) {
-      if (!_folders.contains("Downloads")) {
-        _folders.add("Downloads");
-      }
-      _mediaItems.insert(
-        0,
-        LocalMediaFile(
-          id: filePath,
-          title: title,
-          path: filePath,
-          sizeBytes: size,
-          duration: const Duration(minutes: 0, seconds: 0),
-          modifiedDate: mod,
-          folder: "Downloads",
-          isVideo: !filePath.endsWith('.mp3'),
-        ),
+    if (!_allMediaItems.any((m) => m.path == filePath)) {
+      final isVideo = !filePath.toLowerCase().endsWith('.mp3') &&
+          !filePath.toLowerCase().endsWith('.wav') &&
+          !filePath.toLowerCase().endsWith('.aac') &&
+          !filePath.toLowerCase().endsWith('.flac') &&
+          !filePath.toLowerCase().endsWith('.m4a');
+
+      final newFile = LocalMediaFile(
+        id: filePath,
+        title: title,
+        path: filePath,
+        sizeBytes: size,
+        duration: const Duration(minutes: 0, seconds: 0),
+        modifiedDate: mod,
+        folder: "Downloads",
+        isVideo: isVideo,
       );
+
+      _allMediaItems.insert(0, newFile);
+      _rebuildFolders();
+      _repository.saveMediaCache(_allMediaItems);
       notifyListeners();
     }
   }
@@ -228,7 +215,10 @@ class LibraryController extends ChangeNotifier {
   }
 
   void deleteMedia(LocalMediaFile item) {
-    _mediaItems.remove(item);
+    _allMediaItems.remove(item);
+    _rebuildFolders();
+    _repository.saveMediaCache(_allMediaItems);
+
     if (!kIsWeb && !item.path.startsWith('http')) {
       final f = File(item.path);
       if (f.existsSync()) {
@@ -242,7 +232,7 @@ class LibraryController extends ChangeNotifier {
 
   String get formattedUsedStorage {
     final mb = libraryUsedBytes / (1024 * 1024);
-    if (mb >= 1000) {
+    if (mb >= 1024) {
       return "${(mb / 1024).toStringAsFixed(1)} GB";
     }
     return "${mb.toStringAsFixed(1)} MB";
