@@ -1,14 +1,15 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:window_manager/window_manager.dart';
+
 import '../constants/app_theme.dart';
 import '../controllers/player_controller.dart';
 import '../controllers/downloader_controller.dart';
 import '../widgets/apple_nav_bar.dart';
 import '../widgets/dynamic_island_toast.dart';
-import '../widgets/downloader_modal.dart';
 import 'home_screen.dart';
 import 'downloader_screen.dart';
 import 'settings_screen.dart';
@@ -24,59 +25,29 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _currentTab = 0;
 
-  bool get _isDesktop =>
-      !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+  bool get _isWindowsOrLinux =>
+      !kIsWeb && (Platform.isWindows || Platform.isLinux);
 
   @override
   Widget build(BuildContext context) {
     final player = context.watch<FEPlayerController>();
     final downloader = context.watch<DownloaderController>();
 
-    // If player is active, show the futuristic full-screen video player viewport!
-    if (player.isPlayerActive) {
-      return const PlayerScreen();
-    }
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: AppTheme.backgroundLight,
       body: Stack(
         children: [
-          // Background Gradient Mesh
-          Positioned(
-            top: -100,
-            right: -100,
-            child: Container(
-              width: 350,
-              height: 350,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppTheme.neonCyan.withOpacity(0.08),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.neonCyan.withOpacity(0.12),
-                    blurRadius: 100,
-                    spreadRadius: 40,
-                  ),
+          // Background Gradient Canvas
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Color(0xFFF8FAFC),
+                  Color(0xFFF1F5F9),
+                  Color(0xFFE2E8F0),
                 ],
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -50,
-            left: -50,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppTheme.electricBlue.withOpacity(0.06),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.electricBlue.withOpacity(0.1),
-                    blurRadius: 100,
-                    spreadRadius: 40,
-                  ),
-                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
             ),
           ),
@@ -85,17 +56,17 @@ class _MainShellState extends State<MainShell> {
           SafeArea(
             child: Column(
               children: [
-                // Desktop Frameless Top Bar Window Controls
-                if (_isDesktop)
+                // Windows & Linux Frameless Title Bar Caption Controls (NOT shown on macOS/Mobile)
+                if (_isWindowsOrLinux)
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                     child: Row(
                       children: [
                         Expanded(
                           child: GestureDetector(
                             behavior: HitTestBehavior.translucent,
                             onPanStart: (_) => windowManager.startDragging(),
-                            child: const SizedBox(height: 24),
+                            child: const SizedBox(height: 28),
                           ),
                         ),
                         IconButton(
@@ -139,32 +110,51 @@ class _MainShellState extends State<MainShell> {
             ),
           ),
 
-          // Floating Apple-Style Bottom Navigation Bar
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 620),
-                child: AppleNavBar(
-                  selectedIndex: _currentTab,
-                  onTabSelected: (index) {
-                    setState(() => _currentTab = index);
-                  },
-                  onQuickAction: () {
-                    DownloaderModal.show(context);
-                  },
+          // Floating Apple Bottom Frosted Navigation Bar
+          if (!player.isPlayerActive)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: AppleNavBar(
+                selectedIndex: _currentTab,
+                onTabSelected: (index) {
+                  setState(() => _currentTab = index);
+                },
+                onQuickAction: () async {
+                  setState(() => _currentTab = 1);
+                  final data = await Clipboard.getData(Clipboard.kTextPlain);
+                  if (data != null && data.text != null && data.text!.isNotEmpty) {
+                    if (context.mounted) {
+                      downloader.fetchMetadata(data.text!);
+                    }
+                  }
+                },
+              ),
+            ),
+
+          // Active Hardware Video Player Cinema Surface
+          if (player.isPlayerActive)
+            Positioned.fill(
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 250),
+                opacity: player.isPlayerActive ? 1.0 : 0.0,
+                child: const PlayerScreen(),
+              ),
+            ),
+
+          // Top Dynamic Island Capsule Notification
+          if (downloader.showToast && downloader.toastMessage != null)
+            Positioned(
+              top: 16,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: DynamicIslandToast(
+                  message: downloader.toastMessage!, isVisible: downloader.showToast,
                 ),
               ),
             ),
-          ),
-
-          // Dynamic Island Top Capsule Toast
-          DynamicIslandToast(
-            message: downloader.toastMessage ?? "Saved to FE Player Library",
-            isVisible: downloader.showToast,
-          ),
         ],
       ),
     );

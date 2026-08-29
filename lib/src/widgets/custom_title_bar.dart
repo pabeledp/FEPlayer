@@ -10,6 +10,9 @@ import 'glass_card.dart';
 class CustomTitleBar extends StatelessWidget {
   const CustomTitleBar({super.key});
 
+  bool get _isWindowsOrLinux =>
+      !kIsWeb && (Platform.isWindows || Platform.isLinux);
+
   bool get _isDesktop =>
       !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
@@ -22,7 +25,7 @@ class CustomTitleBar extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       borderWidth: 1.0,
       borderColor: Colors.white.withOpacity(0.25),
-      color: Colors.white.withOpacity(0.18),
+      color: const Color(0xD90F172A),
       padding: const EdgeInsets.symmetric(horizontal: 14),
       child: Row(
         children: [
@@ -56,14 +59,14 @@ class CustomTitleBar extends StatelessWidget {
                   // Official FE Player Multimedia Organizer Brand Image
                   Image.asset(
                     'assets/images/fe_player_banner.png',
-                    height: 44,
+                    height: 40,
                     fit: BoxFit.contain,
                   ),
                   const SizedBox(width: 12),
                   Container(
                     width: 1,
                     height: 16,
-                    color: AppTheme.glassBorder,
+                    color: Colors.white.withOpacity(0.25),
                   ),
                   const SizedBox(width: 12),
                   // Current Video / Media Title
@@ -73,9 +76,9 @@ class CustomTitleBar extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: AppTheme.textSecondary,
+                        color: Colors.white,
                         fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
@@ -84,8 +87,8 @@ class CustomTitleBar extends StatelessWidget {
             ),
           ),
 
-          // Window Action Controls
-          if (_isDesktop) ...[
+          // Windows & Linux Caption Controls ONLY (NOT shown on macOS/Mobile)
+          if (_isWindowsOrLinux) ...[
             _WindowButton(
               icon: Icons.remove,
               onTap: () => windowManager.minimize(),
@@ -110,15 +113,7 @@ class CustomTitleBar extends StatelessWidget {
               isClose: true,
               tooltip: "Close",
             ),
-          ] else ...[
-            _WindowButton(
-              icon: controller.isFullscreen
-                  ? Icons.fullscreen_exit_rounded
-                  : Icons.fullscreen_rounded,
-              onTap: () => controller.toggleFullscreen(),
-              tooltip: "Toggle Fullscreen",
-            ),
-          ]
+          ],
         ],
       ),
     );
@@ -162,14 +157,14 @@ class _WindowButtonState extends State<_WindowButton> {
               color: _isHovered
                   ? (widget.isClose
                       ? Colors.red.withOpacity(0.85)
-                      : AppTheme.electricBlue.withOpacity(0.12))
+                      : AppTheme.electricBlue.withOpacity(0.2))
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(8),
               border: _isHovered
                   ? Border.all(
                       color: widget.isClose
                           ? Colors.red.withOpacity(0.3)
-                          : AppTheme.neonCyan.withOpacity(0.3),
+                          : AppTheme.neonCyan.withOpacity(0.4),
                       width: 1,
                     )
                   : null,
@@ -181,8 +176,8 @@ class _WindowButtonState extends State<_WindowButton> {
                 color: _isHovered && widget.isClose
                     ? Colors.white
                     : (_isHovered
-                        ? AppTheme.electricBlue
-                        : AppTheme.textSecondary),
+                        ? AppTheme.neonCyan
+                        : Colors.white.withOpacity(0.85)),
               ),
             ),
           ),
