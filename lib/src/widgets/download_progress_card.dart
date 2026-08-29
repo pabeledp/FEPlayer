@@ -21,10 +21,10 @@ class DownloadProgressCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(16),
       borderRadius: BorderRadius.circular(18),
-      color: Colors.white.withOpacity(0.14),
+      color: Colors.white.withOpacity(0.95),
       borderColor: isCompleted
-          ? AppTheme.neonCyan.withOpacity(0.4)
-          : Colors.white.withOpacity(0.22),
+          ? const Color(0xFF00F2FE)
+          : const Color(0xFFE2E8F0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -57,8 +57,8 @@ class DownloadProgressCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.textPrimary,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF0F172A),
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -68,24 +68,24 @@ class DownloadProgressCard extends StatelessWidget {
                           item.metadata.author,
                           style: const TextStyle(
                             fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: AppTheme.textSecondary,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF475569),
                           ),
                         ),
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                           decoration: BoxDecoration(
                             gradient: isCompleted ? AppTheme.accentGradient : null,
-                            color: isCompleted ? null : AppTheme.electricBlue.withOpacity(0.12),
+                            color: isCompleted ? null : const Color(0xFFE0E7FF),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
                             item.resolution.label,
                             style: TextStyle(
                               fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: isCompleted ? Colors.white : AppTheme.electricBlue,
+                              fontWeight: FontWeight.w800,
+                              color: isCompleted ? Colors.white : const Color(0xFF1D4ED8),
                             ),
                           ),
                         ),
@@ -105,7 +105,7 @@ class DownloadProgressCard extends StatelessWidget {
                   },
                   tooltip: "Play Video",
                   icon: Container(
-                    padding: const EdgeInsets.all(6),
+                    padding: const EdgeInsets.all(7),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: AppTheme.accentGradient,
@@ -153,7 +153,7 @@ class DownloadProgressCard extends StatelessWidget {
             child: Container(
               height: 7,
               width: double.infinity,
-              color: Colors.black.withOpacity(0.08),
+              color: const Color(0xFFE2E8F0),
               child: FractionallySizedBox(
                 alignment: Alignment.centerLeft,
                 widthFactor: item.progress.clamp(0.0, 1.0),
@@ -162,7 +162,7 @@ class DownloadProgressCard extends StatelessWidget {
                     gradient: AppTheme.accentGradient,
                     boxShadow: [
                       BoxShadow(
-                        color: AppTheme.neonCyan.withOpacity(0.5),
+                        color: const Color(0xFF00F2FE).withOpacity(0.5),
                         blurRadius: 10,
                         spreadRadius: 1,
                       ),
@@ -183,8 +183,8 @@ class DownloadProgressCard extends StatelessWidget {
                 isCompleted ? "Completed" : "${item.formattedProgress} • ${item.formattedDownloaded}",
                 style: const TextStyle(
                   fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0F172A),
                   fontFamily: 'monospace',
                 ),
               ),
@@ -193,8 +193,8 @@ class DownloadProgressCard extends StatelessWidget {
                   "${item.formattedSpeed} • ETA: ${item.eta}",
                   style: const TextStyle(
                     fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textSecondary,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF334155),
                     fontFamily: 'monospace',
                   ),
                 ),
@@ -233,11 +233,11 @@ class _GlassCircularButton extends StatelessWidget {
             shape: BoxShape.circle,
             color: isDestructive
                 ? Colors.red.withOpacity(0.12)
-                : Colors.white.withOpacity(0.18),
+                : const Color(0xFFF1F5F9),
             border: Border.all(
               color: isDestructive
                   ? Colors.red.withOpacity(0.3)
-                  : Colors.white.withOpacity(0.3),
+                  : const Color(0xFFCBD5E1),
               width: 1,
             ),
           ),
@@ -245,7 +245,7 @@ class _GlassCircularButton extends StatelessWidget {
             child: Icon(
               icon,
               size: 16,
-              color: isDestructive ? Colors.red : AppTheme.textPrimary,
+              color: isDestructive ? Colors.red : const Color(0xFF0F172A),
             ),
           ),
         ),

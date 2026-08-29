@@ -1,68 +1,69 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  // Apple-Inspired Glassmorphic Palette (Light & Dark Glass)
-  static const Color glassWhite = Color(0xF2F8FAFC); // Base container
-  static const Color glassPanel = Color(0xCCFFFFFF); // 80% opacity frosted glass
-  static const Color glassCard = Color(0x24FFFFFF);  // 14% pure frosted glass overlay
-  static const Color glassCardDark = Color(0x1F0F172A);
+  // Apple-Inspired High-Contrast Glassmorphic Palette
+  static const Color glassWhite = Color(0xF7FFFFFF); // 97% pure crisp white container
+  static const Color glassPanel = Color(0xF2FFFFFF); // 95% opacity frosted glass
+  static const Color glassCard = Color(0xF0FFFFFF);  // 94% opacity solid light card
+  static const Color glassCardDark = Color(0xF00F172A); // 94% opacity dark glass container
   static const Color glassHover = Color(0x3300F2FE); // Soft neon cyan glass hover
 
-  // Hairline Glass Edges
-  static Color glassBorder = Colors.white.withOpacity(0.22);
-  static Color glassBorderLight = const Color(0x40E2E8F0);
-  static Color activeBorder = const Color(0x8000F2FE); // Glowing neon cyan border
+  // Crisp Hairline Borders (High contrast)
+  static const Color glassBorder = Color(0xFFE2E8F0); // Crisp light border
+  static const Color glassBorderMedium = Color(0xFFCBD5E1); // Slightly darker border for cards
+  static const Color activeBorder = Color(0xFF00F2FE); // Glowing neon cyan border
 
-  // Accent Colors: Electric Blue (#4FACFE) to Neon Cyan (#00F2FE)
-  static const Color electricBlue = Color(0xFF4FACFE);
+  // Accent Colors: Electric Blue (#2563EB / #4FACFE) to Neon Cyan (#00F2FE)
+  static const Color electricBlue = Color(0xFF2563EB); // Vibrant Electric Blue
   static const Color electricBlueLight = Color(0xFF60A5FA);
   static const Color electricBlueDark = Color(0xFF1D4ED8);
   static const Color neonCyan = Color(0xFF00F2FE);
   static const Color vibrantBlue = Color(0xFF2563EB);
 
   static const LinearGradient accentGradient = LinearGradient(
-    colors: [electricBlue, neonCyan],
+    colors: [Color(0xFF2563EB), Color(0xFF00D2FF)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
   static const LinearGradient glassGradient = LinearGradient(
     colors: [
-      Color(0x33FFFFFF),
-      Color(0x14FFFFFF),
+      Color(0xFFFFFFFF),
+      Color(0xFFF8FAFC),
     ],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
-  // Typography & Text
-  static const Color textPrimary = Color(0xFF0F172A); // Deep Slate
-  static const Color textSecondary = Color(0xFF64748B); // Muted Slate
+  // Typography & Text (High Contrast & Legibility)
+  static const Color textPrimary = Color(0xFF0F172A); // Jet Black / Deep Charcoal
+  static const Color textSecondary = Color(0xFF334155); // Dark Slate (High contrast)
+  static const Color textMuted = Color(0xFF64748B); // Slate Muted
   static const Color textDisabled = Color(0xFF94A3B8);
-  static const Color textLight = Color(0xFFF8FAFC);
+  static const Color textLight = Color(0xFFFFFFFF);
 
-  // Background Cinema Backdrop
+  // Background Scaffolds
   static const Color backgroundDark = Color(0xFF090D16);
-  static const Color backgroundLight = Color(0xFFF1F5F9);
+  static const Color backgroundLight = Color(0xFFF1F5F9); // Clean Apple Slate Light
 
   // Ambient Glass Shadows
   static List<BoxShadow> glassShadow = [
     BoxShadow(
-      color: Colors.black.withOpacity(0.12),
-      blurRadius: 24,
-      offset: const Offset(0, 8),
+      color: Colors.black.withOpacity(0.08),
+      blurRadius: 20,
+      offset: const Offset(0, 6),
       spreadRadius: 0,
     ),
     BoxShadow(
-      color: neonCyan.withOpacity(0.08),
-      blurRadius: 30,
+      color: const Color(0xFF2563EB).withOpacity(0.06),
+      blurRadius: 25,
       offset: const Offset(0, 2),
     ),
   ];
 
   static List<BoxShadow> buttonGlow = [
     BoxShadow(
-      color: electricBlue.withOpacity(0.4),
+      color: const Color(0xFF2563EB).withOpacity(0.4),
       blurRadius: 16,
       offset: const Offset(0, 4),
     ),
@@ -70,7 +71,7 @@ class AppTheme {
 
   static List<BoxShadow> cyanGlow = [
     BoxShadow(
-      color: neonCyan.withOpacity(0.45),
+      color: const Color(0xFF00F2FE).withOpacity(0.45),
       blurRadius: 18,
       offset: const Offset(0, 2),
     ),

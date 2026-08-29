@@ -1,7 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 
-
 class GlassCard extends StatelessWidget {
   final Widget child;
   final double? width;
@@ -41,17 +40,17 @@ class GlassCard extends StatelessWidget {
       height: height,
       padding: padding ?? const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color ?? Colors.white.withOpacity(0.12),
+        color: color ?? Colors.white.withOpacity(0.92),
         borderRadius: radius,
         border: Border.all(
-          color: borderColor ?? Colors.white.withOpacity(0.22),
+          color: borderColor ?? const Color(0xFFE2E8F0),
           width: borderWidth,
         ),
         boxShadow: shadows ?? [
           BoxShadow(
-            color: Colors.black.withOpacity(0.16),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
             spreadRadius: 0,
           ),
         ],

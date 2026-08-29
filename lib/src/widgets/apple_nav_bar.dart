@@ -26,21 +26,21 @@ class AppleNavBar extends StatelessWidget {
             height: 64,
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.18),
+              color: Colors.white.withOpacity(0.92),
               borderRadius: BorderRadius.circular(28),
               border: Border.all(
-                color: Colors.white.withOpacity(0.3),
+                color: const Color(0xFFE2E8F0),
                 width: 1.2,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.15),
-                  blurRadius: 28,
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 24,
                   offset: const Offset(0, 8),
                 ),
                 BoxShadow(
-                  color: AppTheme.neonCyan.withOpacity(0.08),
-                  blurRadius: 30,
+                  color: const Color(0xFF2563EB).withOpacity(0.08),
+                  blurRadius: 28,
                 ),
               ],
             ),
@@ -68,7 +68,7 @@ class AppleNavBar extends StatelessWidget {
                     decoration: BoxDecoration(
                       gradient: AppTheme.accentGradient,
                       borderRadius: BorderRadius.circular(20),
-                      boxShadow: AppTheme.cyanGlow,
+                      boxShadow: AppTheme.buttonGlow,
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
@@ -80,7 +80,7 @@ class AppleNavBar extends StatelessWidget {
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 12,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w900,
                           ),
                         ),
                       ],
@@ -125,10 +125,10 @@ class _NavTab extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.white.withOpacity(0.2) : Colors.transparent,
+          color: isSelected ? const Color(0xFFEFF6FF) : Colors.transparent,
           borderRadius: BorderRadius.circular(18),
           border: isSelected
-              ? Border.all(color: Colors.white.withOpacity(0.4), width: 1.0)
+              ? Border.all(color: const Color(0xFFBFDBFE), width: 1.0)
               : null,
         ),
         child: Row(
@@ -137,16 +137,16 @@ class _NavTab extends StatelessWidget {
             Icon(
               icon,
               size: 20,
-              color: isSelected ? AppTheme.electricBlue : AppTheme.textSecondary,
+              color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF64748B),
             ),
             if (isSelected) ...[
               const SizedBox(width: 6),
               Text(
                 label,
                 style: const TextStyle(
-                  color: AppTheme.textPrimary,
+                  color: Color(0xFF0F172A),
                   fontSize: 12,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ],
