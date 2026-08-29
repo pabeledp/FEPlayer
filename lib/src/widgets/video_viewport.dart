@@ -52,6 +52,7 @@ class _VideoViewportState extends State<VideoViewport> {
         _isHorizontalDrag = false;
         _isVerticalLeftDrag = false;
         _isVerticalRightDrag = false;
+        controller.onUserInteraction();
       },
       onPanUpdate: (details) {
         if (_dragStartX == null || _dragStartY == null) return;
@@ -78,11 +79,11 @@ class _VideoViewportState extends State<VideoViewport> {
           final deltaSeconds = (details.delta.dx / size.width) * 90.0;
           controller.updateHorizontalSeek(deltaSeconds);
         } else if (_isVerticalLeftDrag) {
-          // Left side: Brightness adjustment (invert dy: upward = brighter)
+          // Left side: Screen Brightness
           final deltaBrightness = -details.delta.dy / 250.0;
           controller.adjustBrightness(deltaBrightness);
         } else if (_isVerticalRightDrag) {
-          // Right side: Volume adjustment (invert dy: upward = louder)
+          // Right side: Audio Volume
           final deltaVolume = -details.delta.dy / 250.0;
           controller.adjustVolume(deltaVolume);
         }
@@ -96,6 +97,8 @@ class _VideoViewportState extends State<VideoViewport> {
         _isHorizontalDrag = false;
         _isVerticalLeftDrag = false;
         _isVerticalRightDrag = false;
+        // Start 3.5s inactivity countdown after gesture completes
+        controller.onUserInteraction();
       },
       child: Stack(
         fit: StackFit.expand,

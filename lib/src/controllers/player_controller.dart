@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
@@ -64,6 +65,14 @@ class FEPlayerController extends ChangeNotifier {
   bool _isFullscreen = false;
   bool get isFullscreen => _isFullscreen;
 
+  // Orientation State (Portrait vs Landscape)
+  bool _isLandscape = false;
+  bool get isLandscape => _isLandscape;
+
+  // Background Audio Playback Mode
+  bool _isBackgroundPlaybackEnabled = true;
+  bool get isBackgroundPlaybackEnabled => _isBackgroundPlaybackEnabled;
+
   // Active Player View Visibility (Overlay vs Home Library)
   bool _isPlayerActive = false;
   bool get isPlayerActive => _isPlayerActive;
@@ -122,6 +131,18 @@ class FEPlayerController extends ChangeNotifier {
   FEPlayerController({this.audioHandler}) {
     _initPlayer();
     _initBrightnessAndVolume();
+    _initAudioSession();
+  }
+
+  Future<void> _initAudioSession() async {
+    try {
+      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+        final session = await AudioSession.instance;
+        await session.configure(const AudioSessionConfiguration.music());
+      }
+    } catch (e) {
+      debugPrint("AudioSession init error: $e");
+    }
   }
 
   void _initPlayer() {
@@ -205,7 +226,7 @@ class FEPlayerController extends ChangeNotifier {
   void _syncAudioServiceNotification() {
     audioHandler?.updateMedia(
       title: _fileName,
-      artist: "FE Player",
+      artist: "FE Player - Multimedia Organizer",
       duration: _duration,
       position: _position,
       isPlaying: _isPlaying,
@@ -227,6 +248,12 @@ class FEPlayerController extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Toggle Background Playback Mode
+  void toggleBackgroundPlayback() {
+    _isBackgroundPlaybackEnabled = !_isBackgroundPlaybackEnabled;
+    notifyListeners();
+  }
+
   // Sidebar toggle
   void toggleSidebar() {
     _sidebarVisible = !_sidebarVisible;
@@ -239,7 +266,7 @@ class FEPlayerController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Auto-hide controls: 3.5 seconds inactivity timer
+  // 3.5 Seconds Inactivity Auto-Hide Logic
   void onUserInteraction() {
     if (!_controlsVisible) {
       _controlsVisible = true;
@@ -274,8 +301,12 @@ class FEPlayerController extends ChangeNotifier {
 
   void toggleControlsVisibility() {
     _controlsVisible = !_controlsVisible;
-    if (_controlsVisible && _isPlaying) {
-      _startHideControlsTimer();
+    if (_controlsVisible) {
+      if (_isPlaying && !_sidebarVisible) {
+        _startHideControlsTimer();
+      }
+    } else {
+      _cancelHideControlsTimer();
     }
     notifyListeners();
   }
@@ -424,6 +455,25 @@ class FEPlayerController extends ChangeNotifier {
     await setBrightness(_brightness + delta);
   }
 
+  // Screen Rotation Toggle (Portrait <-> Landscape)
+  Future<void> toggleOrientation() async {
+    _isLandscape = !_isLandscape;
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+      if (_isLandscape) {
+        await SystemChrome.setPreferredOrientations([
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
+      } else {
+        await SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+          DeviceOrientation.portraitDown,
+        ]);
+      }
+    }
+    notifyListeners();
+  }
+
   // Fullscreen & Orientation Switching
   Future<void> toggleFullscreen() async {
     _isFullscreen = !_isFullscreen;
@@ -433,12 +483,14 @@ class FEPlayerController extends ChangeNotifier {
     } else {
       // Mobile Responsive Orientation & Immersive System Mode
       if (_isFullscreen) {
+        _isLandscape = true;
         await SystemChrome.setPreferredOrientations([
           DeviceOrientation.landscapeLeft,
           DeviceOrientation.landscapeRight,
         ]);
         await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
       } else {
+        _isLandscape = false;
         await _restoreOrientationAndBars();
       }
     }
