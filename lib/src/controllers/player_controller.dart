@@ -11,6 +11,21 @@ import 'package:volume_controller/volume_controller.dart';
 import 'package:window_manager/window_manager.dart';
 import 'fe_audio_handler.dart';
 
+enum PlayerLoopMode {
+  off,
+  one,
+  all,
+}
+
+enum SleepTimerOption {
+  off,
+  min15,
+  min30,
+  min45,
+  min60,
+  endOfTrack,
+}
+
 class PlaylistItem {
   final String title;
   final String pathOrUrl;
@@ -72,6 +87,18 @@ class FEPlayerController extends ChangeNotifier {
   // Background Audio Playback Mode
   bool _isBackgroundPlaybackEnabled = true;
   bool get isBackgroundPlaybackEnabled => _isBackgroundPlaybackEnabled;
+
+  // Loop Playback Mode
+  PlayerLoopMode _loopMode = PlayerLoopMode.off;
+  PlayerLoopMode get loopMode => _loopMode;
+
+  // Sleep Timer System
+  SleepTimerOption _sleepTimerOption = SleepTimerOption.off;
+  SleepTimerOption get sleepTimerOption => _sleepTimerOption;
+
+  Duration? _sleepTimerRemaining;
+  Duration? get sleepTimerRemaining => _sleepTimerRemaining;
+  Timer? _sleepCountdownTimer;
 
   // Active Player View Visibility (Overlay vs Home Library)
   bool _isPlayerActive = false;
@@ -192,6 +219,12 @@ class FEPlayerController extends ChangeNotifier {
       notifyListeners();
     });
 
+    player.stream.completed.listen((completed) {
+      if (completed) {
+        _handleMediaCompleted();
+      }
+    });
+
     player.stream.tracks.listen((tracks) {
       _tracks = tracks;
       _selectedAudioTrack = player.state.track.audio;
@@ -203,6 +236,27 @@ class FEPlayerController extends ChangeNotifier {
       _playbackSpeed = rate;
       notifyListeners();
     });
+  }
+
+  void _handleMediaCompleted() {
+    if (_sleepTimerOption == SleepTimerOption.endOfTrack) {
+      setSleepTimer(SleepTimerOption.off);
+      closePlayer();
+      return;
+    }
+
+    if (_loopMode == PlayerLoopMode.one) {
+      player.seek(Duration.zero);
+      player.play();
+    } else if (_loopMode == PlayerLoopMode.all) {
+      if (_playlist.isNotEmpty) {
+        final nextIndex = (_currentPlaylistIndex + 1) % _playlist.length;
+        playPlaylistItem(nextIndex);
+      } else {
+        player.seek(Duration.zero);
+        player.play();
+      }
+    }
   }
 
   Future<void> _initBrightnessAndVolume() async {
@@ -246,6 +300,83 @@ class FEPlayerController extends ChangeNotifier {
     _isPlayerActive = false;
     _restoreOrientationAndBars();
     notifyListeners();
+  }
+
+  // Loop Mode Toggle (Off -> Loop 1 -> Loop All)
+  void toggleLoopMode() {
+    switch (_loopMode) {
+      case PlayerLoopMode.off:
+        _loopMode = PlayerLoopMode.one;
+        break;
+      case PlayerLoopMode.one:
+        _loopMode = PlayerLoopMode.all;
+        break;
+      case PlayerLoopMode.all:
+        _loopMode = PlayerLoopMode.off;
+        break;
+    }
+    notifyListeners();
+  }
+
+  // Sleep Timer Configuration
+  void setSleepTimer(SleepTimerOption option) {
+    _sleepTimerOption = option;
+    _sleepCountdownTimer?.cancel();
+    _sleepTimerRemaining = null;
+
+    int seconds = 0;
+    switch (option) {
+      case SleepTimerOption.off:
+        notifyListeners();
+        return;
+      case SleepTimerOption.min15:
+        seconds = 15 * 60;
+        break;
+      case SleepTimerOption.min30:
+        seconds = 30 * 60;
+        break;
+      case SleepTimerOption.min45:
+        seconds = 45 * 60;
+        break;
+      case SleepTimerOption.min60:
+        seconds = 60 * 60;
+        break;
+      case SleepTimerOption.endOfTrack:
+        notifyListeners();
+        return;
+    }
+
+    _sleepTimerRemaining = Duration(seconds: seconds);
+    _sleepCountdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_sleepTimerRemaining != null && _sleepTimerRemaining!.inSeconds > 0) {
+        _sleepTimerRemaining = _sleepTimerRemaining! - const Duration(seconds: 1);
+        notifyListeners();
+      } else {
+        timer.cancel();
+        _sleepTimerOption = SleepTimerOption.off;
+        _sleepTimerRemaining = null;
+        closePlayer();
+      }
+    });
+
+    notifyListeners();
+  }
+
+  String get sleepTimerLabel {
+    switch (_sleepTimerOption) {
+      case SleepTimerOption.off:
+        return "Sleep Timer Off";
+      case SleepTimerOption.min15:
+        return "15 min";
+      case SleepTimerOption.min30:
+        return "30 min";
+      case SleepTimerOption.min45:
+        return "45 min";
+      case SleepTimerOption.min60:
+        return "60 min";
+      case SleepTimerOption.endOfTrack:
+        return "End of Track";
+    }
   }
 
   // Toggle Background Playback Mode
@@ -662,6 +793,7 @@ class FEPlayerController extends ChangeNotifier {
     _brightnessHudTimer?.cancel();
     _seekLeftTimer?.cancel();
     _seekRightTimer?.cancel();
+    _sleepCountdownTimer?.cancel();
     player.dispose();
     super.dispose();
   }

@@ -14,6 +14,8 @@ class DownloaderController extends ChangeNotifier {
   String? _fetchError;
   String? get fetchError => _fetchError;
 
+  String _lastFetchedUrl = "";
+
   DownloadMetadata? _currentMetadata;
   DownloadMetadata? get currentMetadata => _currentMetadata;
 
@@ -79,14 +81,15 @@ class DownloaderController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // 1. Fetch Metadata from URL
+  // 1. Fetch Metadata from URL (Smart Auto-Fetch)
   Future<void> fetchMetadata(String rawUrl) async {
     final url = rawUrl.trim();
-    if (url.isEmpty) return;
+    if (url.isEmpty || url == _lastFetchedUrl && _currentMetadata != null) return;
 
     _isFetching = true;
     _fetchError = null;
     _currentMetadata = null;
+    _lastFetchedUrl = url;
     notifyListeners();
 
     try {
@@ -169,7 +172,7 @@ class DownloaderController extends ChangeNotifier {
 
       setFormat(_selectedFormat);
     } catch (e) {
-      _fetchError = "Unable to fetch video: ${e.toString()}";
+      _fetchError = "Unable to fetch stream: ${e.toString()}";
       debugPrint("Metadata fetch error: $e");
     } finally {
       _isFetching = false;
@@ -177,7 +180,7 @@ class DownloaderController extends ChangeNotifier {
     }
   }
 
-  // 2. Start Download Process
+  // 2. Start Download Process (Step-by-Step Progress Tracking)
   Future<void> startDownload() async {
     if (_currentMetadata == null || _selectedResolution == null) return;
 
