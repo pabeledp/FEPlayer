@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
@@ -84,7 +85,7 @@ class DownloaderController extends ChangeNotifier {
   // 1. Fetch Metadata from URL (Smart Auto-Fetch)
   Future<void> fetchMetadata(String rawUrl) async {
     final url = rawUrl.trim();
-    if (url.isEmpty || url == _lastFetchedUrl && _currentMetadata != null) return;
+    if (url.isEmpty || (url == _lastFetchedUrl && _currentMetadata != null)) return;
 
     _isFetching = true;
     _fetchError = null;
@@ -180,7 +181,7 @@ class DownloaderController extends ChangeNotifier {
     }
   }
 
-  // 2. Start Download Process (Step-by-Step Progress Tracking)
+  // 2. Start Download Process
   Future<void> startDownload() async {
     if (_currentMetadata == null || _selectedResolution == null) return;
 
@@ -205,6 +206,7 @@ class DownloaderController extends ChangeNotifier {
     _runDownloadWorker(download);
   }
 
+  // High-Performance Chunked Resumable Engine
   Future<void> _runDownloadWorker(ActiveDownload item) async {
     try {
       Directory? targetDir;
@@ -222,112 +224,152 @@ class DownloaderController extends ChangeNotifier {
       final filePath = targetDir != null ? "${targetDir.path}/$fileName" : fileName;
       item.savePath = filePath;
 
-      if (item.metadata.sourceUrl.contains('youtube.com') || item.metadata.sourceUrl.contains('youtu.be')) {
-        final videoId = VideoId(item.metadata.sourceUrl);
-        final manifest = await _yt.videos.streamsClient.getManifest(videoId);
+      final isYouTube = item.metadata.sourceUrl.contains('youtube.com') ||
+          item.metadata.sourceUrl.contains('youtu.be');
 
-        StreamInfo? streamInfo;
-        if (item.format == DownloadFormat.audioMp3) {
-          streamInfo = manifest.audioOnly.withHighestBitrate();
-        } else {
-          final muxed = manifest.muxed.where((s) => s.videoResolution.height == item.resolution.height);
-          if (muxed.isNotEmpty) {
-            streamInfo = muxed.first;
-          } else {
-            final videoOnly = manifest.videoOnly.where((s) => s.videoResolution.height == item.resolution.height);
-            streamInfo = videoOnly.isNotEmpty ? videoOnly.first : manifest.muxed.withHighestBitrate();
-          }
-        }
+      final httpClient = HttpClient()
+        ..idleTimeout = const Duration(seconds: 30)
+        ..connectionTimeout = const Duration(seconds: 20);
 
-        item.totalBytes = streamInfo.size.totalBytes;
-        final stream = _yt.videos.streamsClient.get(streamInfo);
-        final file = File(filePath);
-        final output = file.openWrite();
+      int retries = 0;
+      const maxRetries = 5;
+      var file = File(filePath);
 
-        var lastTime = DateTime.now();
-        var lastBytes = 0;
-
-        await for (final chunk in stream) {
-          if (item.status == DownloadStatus.failed) {
-            await output.close();
-            return;
-          }
-          while (item.status == DownloadStatus.paused) {
-            await Future.delayed(const Duration(milliseconds: 300));
-          }
-
-          output.add(chunk);
-          item.downloadedBytes += chunk.length;
-          item.progress = (item.downloadedBytes / item.totalBytes).clamp(0.0, 1.0);
-
-          final now = DateTime.now();
-          final diff = now.difference(lastTime).inMilliseconds;
-          if (diff >= 300) {
-            final bytesDiff = item.downloadedBytes - lastBytes;
-            item.speedBytesPerSec = (bytesDiff / (diff / 1000.0));
-            lastTime = now;
-            lastBytes = item.downloadedBytes;
-            notifyListeners();
-          }
-        }
-        await output.flush();
-        await output.close();
-      } else {
-        // Direct stream download
-        final file = File(filePath);
-        final client = HttpClient();
-        final request = await client.getUrl(Uri.parse(item.metadata.sourceUrl));
-        final response = await request.close();
-        item.totalBytes = response.contentLength > 0 ? response.contentLength : item.resolution.approxSizeBytes;
-        final output = file.openWrite();
-
-        var lastTime = DateTime.now();
-        var lastBytes = 0;
-
-        await for (final chunk in response) {
-          if (item.status == DownloadStatus.failed) {
-            await output.close();
-            return;
-          }
-          while (item.status == DownloadStatus.paused) {
-            await Future.delayed(const Duration(milliseconds: 300));
-          }
-
-          output.add(chunk);
-          item.downloadedBytes += chunk.length;
-          item.progress = (item.downloadedBytes / item.totalBytes).clamp(0.0, 1.0);
-
-          final now = DateTime.now();
-          final diff = now.difference(lastTime).inMilliseconds;
-          if (diff >= 300) {
-            final bytesDiff = item.downloadedBytes - lastBytes;
-            item.speedBytesPerSec = (bytesDiff / (diff / 1000.0));
-            lastTime = now;
-            lastBytes = item.downloadedBytes;
-            notifyListeners();
-          }
-        }
-        await output.flush();
-        await output.close();
+      // Check existing downloaded size if resuming
+      int startByte = 0;
+      if (await file.exists()) {
+        startByte = await file.length();
+        item.downloadedBytes = startByte;
       }
 
-      item.status = DownloadStatus.completed;
-      item.progress = 1.0;
-      _activeDownloads.remove(item);
-      _completedDownloads.insert(0, item);
-      notifyListeners();
+      var lastUiUpdateTime = DateTime.now();
+      var lastUiBytes = startByte;
 
-      // Trigger Apple-style Island Toast
-      triggerIslandToast("Saved to FE Player Library");
+      while (item.downloadedBytes < item.totalBytes && retries < maxRetries) {
+        if (item.status == DownloadStatus.failed) break;
 
-      // Notify Library Controller
-      if (onDownloadComplete != null) {
-        onDownloadComplete!(filePath, item.metadata.title);
+        while (item.status == DownloadStatus.paused) {
+          await Future.delayed(const Duration(milliseconds: 300));
+        }
+
+        try {
+          Uri streamUri;
+          if (isYouTube) {
+            final videoId = VideoId(item.metadata.sourceUrl);
+            final manifest = await _yt.videos.streamsClient.getManifest(videoId);
+            StreamInfo streamInfo;
+
+            if (item.format == DownloadFormat.audioMp3) {
+              streamInfo = manifest.audioOnly.withHighestBitrate();
+            } else {
+              final muxed = manifest.muxed.where((s) => s.videoResolution.height == item.resolution.height);
+              if (muxed.isNotEmpty) {
+                streamInfo = muxed.first;
+              } else {
+                final videoOnly = manifest.videoOnly.where((s) => s.videoResolution.height == item.resolution.height);
+                streamInfo = videoOnly.isNotEmpty ? videoOnly.first : manifest.muxed.withHighestBitrate();
+              }
+            }
+
+            streamUri = streamInfo.url;
+            item.totalBytes = streamInfo.size.totalBytes;
+          } else {
+            streamUri = Uri.parse(item.metadata.sourceUrl);
+          }
+
+          final request = await httpClient.getUrl(streamUri);
+          if (item.downloadedBytes > 0) {
+            request.headers.set('Range', 'bytes=${item.downloadedBytes}-');
+          }
+          request.headers.set('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+
+          final response = await request.close();
+
+          if (response.statusCode != HttpStatus.ok &&
+              response.statusCode != HttpStatus.partialContent) {
+            throw HttpException("HTTP ${response.statusCode}: ${response.reasonPhrase}");
+          }
+
+          if (item.totalBytes == 0 || item.totalBytes == item.resolution.approxSizeBytes) {
+            final contentLen = response.contentLength;
+            if (contentLen > 0) {
+              item.totalBytes = item.downloadedBytes + contentLen;
+            }
+          }
+
+          final output = file.openWrite(mode: FileMode.append);
+          final buffer = BytesBuilder(copy: false);
+          const flushThreshold = 512 * 1024; // 512 KB RAM buffer for silky smooth I/O
+
+          await for (final chunk in response) {
+            if (item.status == DownloadStatus.failed) {
+              await output.close();
+              return;
+            }
+            while (item.status == DownloadStatus.paused) {
+              await Future.delayed(const Duration(milliseconds: 300));
+            }
+
+            buffer.add(chunk);
+            item.downloadedBytes += chunk.length;
+            item.progress = (item.downloadedBytes / (item.totalBytes > 0 ? item.totalBytes : 1)).clamp(0.0, 1.0);
+
+            // Flush RAM buffer to disk in batches
+            if (buffer.length >= flushThreshold) {
+              output.add(buffer.takeBytes());
+            }
+
+            final now = DateTime.now();
+            final diff = now.difference(lastUiUpdateTime).inMilliseconds;
+            if (diff >= 300) {
+              final bytesDiff = item.downloadedBytes - lastUiBytes;
+              item.speedBytesPerSec = (bytesDiff / (diff / 1000.0));
+              lastUiUpdateTime = now;
+              lastUiBytes = item.downloadedBytes;
+              notifyListeners();
+            }
+          }
+
+          if (buffer.isNotEmpty) {
+            output.add(buffer.takeBytes());
+          }
+          await output.flush();
+          await output.close();
+
+          // If loop completed cleanly and all bytes reached
+          if (item.downloadedBytes >= item.totalBytes) {
+            break;
+          }
+        } catch (err) {
+          retries++;
+          debugPrint("Stream chunk error (Attempt $retries/$maxRetries): $err");
+          if (retries >= maxRetries) {
+            rethrow;
+          }
+          // Exponential backoff before resuming stream range
+          await Future.delayed(Duration(milliseconds: 1000 * retries));
+        }
+      }
+
+      if (item.status != DownloadStatus.failed) {
+        item.status = DownloadStatus.completed;
+        item.progress = 1.0;
+        _activeDownloads.remove(item);
+        _completedDownloads.insert(0, item);
+        notifyListeners();
+
+        // Trigger Apple-style Island Toast
+        triggerIslandToast("Saved to FE Player Library");
+
+        // Notify Library Controller
+        if (onDownloadComplete != null) {
+          onDownloadComplete!(filePath, item.metadata.title);
+        }
       }
     } catch (e) {
       item.status = DownloadStatus.failed;
-      item.errorMessage = e.toString();
-      debugPrint("Download execution error: $e");
+      item.errorMessage = "Download interrupted: $e";
+      debugPrint("Download failure: $e");
       notifyListeners();
     }
   }
@@ -341,6 +383,7 @@ class DownloaderController extends ChangeNotifier {
   void resumeDownload(ActiveDownload item) {
     item.status = DownloadStatus.downloading;
     notifyListeners();
+    _runDownloadWorker(item);
   }
 
   void cancelDownload(ActiveDownload item) {
