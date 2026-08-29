@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../controllers/player_controller.dart';
@@ -15,6 +17,9 @@ class PlayerScreen extends StatefulWidget {
 
 class _PlayerScreenState extends State<PlayerScreen> {
   final FocusNode _focusNode = FocusNode();
+
+  bool get _isDesktop =>
+      !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
   @override
   void initState() {
@@ -42,7 +47,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
       },
       child: MouseRegion(
         onHover: (_) => controller.onUserInteraction(),
-        onExit: (_) => controller.onMouseExitScreen(),
+        onExit: (_) {
+          if (_isDesktop) {
+            controller.onMouseExitScreen();
+          }
+        },
         child: Scaffold(
           backgroundColor: Colors.black,
           body: Stack(

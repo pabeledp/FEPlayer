@@ -2,12 +2,14 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 import '../models/download_item.dart';
 
 class DownloaderController extends ChangeNotifier {
   final YoutubeExplode _yt = YoutubeExplode();
+  static const MethodChannel _mediaScannerChannel = MethodChannel('com.example.fe_player/media_scanner');
 
   bool _isFetching = false;
   bool get isFetching => _isFetching;
@@ -206,22 +208,47 @@ class DownloaderController extends ChangeNotifier {
     _runDownloadWorker(download);
   }
 
-  // High-Performance Chunked Resumable Engine
-  Future<void> _runDownloadWorker(ActiveDownload item) async {
-    try {
-      Directory? targetDir;
-      if (!kIsWeb) {
-        final docs = await getApplicationDocumentsDirectory();
-        targetDir = Directory('${docs.path}/FEPlayer_Media');
-        if (!await targetDir.exists()) {
-          await targetDir.create(recursive: true);
+  // Determine public media gallery directory on Android & desktop
+  Future<Directory> _getDestinationDirectory(DownloadFormat format) async {
+    if (!kIsWeb && Platform.isAndroid) {
+      // Check standard public Android Movies / Download / Music folders
+      final publicRoot = Directory('/storage/emulated/0');
+      if (await publicRoot.exists()) {
+        final folderName = format == DownloadFormat.audioMp3 ? 'Music' : 'Movies';
+        final galleryDir = Directory('/storage/emulated/0/$folderName/FEPlayer');
+        try {
+          if (!await galleryDir.exists()) {
+            await galleryDir.create(recursive: true);
+          }
+          return galleryDir;
+        } catch (_) {
+          // Fallback to Download folder
+          final downloadDir = Directory('/storage/emulated/0/Download/FEPlayer');
+          if (!await downloadDir.exists()) {
+            await downloadDir.create(recursive: true);
+          }
+          return downloadDir;
         }
       }
+    }
 
+    // Default fallback
+    final docs = await getApplicationDocumentsDirectory();
+    final targetDir = Directory('${docs.path}/FEPlayer_Media');
+    if (!await targetDir.exists()) {
+      await targetDir.create(recursive: true);
+    }
+    return targetDir;
+  }
+
+  // High-Performance Chunked Resumable Engine with Android MediaStore Sync
+  Future<void> _runDownloadWorker(ActiveDownload item) async {
+    try {
+      final targetDir = await _getDestinationDirectory(item.format);
       final sanitizedTitle = item.metadata.title.replaceAll(RegExp(r'[^\w\s\.-]'), '_');
       final ext = item.format == DownloadFormat.audioMp3 ? 'mp3' : 'mp4';
       final fileName = "${sanitizedTitle}_${item.resolution.label}.$ext";
-      final filePath = targetDir != null ? "${targetDir.path}/$fileName" : fileName;
+      final filePath = "${targetDir.path}/$fileName";
       item.savePath = filePath;
 
       final isYouTube = item.metadata.sourceUrl.contains('youtube.com') ||
@@ -346,7 +373,6 @@ class DownloaderController extends ChangeNotifier {
           if (retries >= maxRetries) {
             rethrow;
           }
-          // Exponential backoff before resuming stream range
           await Future.delayed(Duration(milliseconds: 1000 * retries));
         }
       }
@@ -358,8 +384,17 @@ class DownloaderController extends ChangeNotifier {
         _completedDownloads.insert(0, item);
         notifyListeners();
 
+        // Android Gallery / MediaStore Immediate Sync
+        if (!kIsWeb && Platform.isAndroid) {
+          try {
+            await _mediaScannerChannel.invokeMethod('scanFile', {'path': filePath});
+          } catch (e) {
+            debugPrint("MediaStore scan trigger error: $e");
+          }
+        }
+
         // Trigger Apple-style Island Toast
-        triggerIslandToast("Saved to FE Player Library");
+        triggerIslandToast("Saved to Phone Gallery & FE Library");
 
         // Notify Library Controller
         if (onDownloadComplete != null) {

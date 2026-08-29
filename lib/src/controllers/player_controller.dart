@@ -409,16 +409,18 @@ class FEPlayerController extends ChangeNotifier {
   }
 
   void onMouseExitScreen() {
-    if (_isPlaying && !_sidebarVisible && !_isDraggingSeek) {
-      _cancelHideControlsTimer();
-      _controlsVisible = false;
-      notifyListeners();
+    if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+      if (_isPlaying && !_sidebarVisible && !_isDraggingSeek) {
+        _cancelHideControlsTimer();
+        _controlsVisible = false;
+        notifyListeners();
+      }
     }
   }
 
   void _startHideControlsTimer() {
     _hideControlsTimer?.cancel();
-    _hideControlsTimer = Timer(const Duration(milliseconds: 3500), () {
+    _hideControlsTimer = Timer(const Duration(seconds: 5), () {
       if (_isPlaying && !_sidebarVisible && !_isDraggingSeek) {
         _controlsVisible = false;
         notifyListeners();
